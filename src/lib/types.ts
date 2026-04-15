@@ -1,4 +1,16 @@
-export type PlatformName = 'Claude' | 'ChatGPT' | 'GitHub Copilot' | 'Gemini' | 'Cursor' | 'Other';
+// src/lib/types.ts
+
+export type PlatformName =
+  | 'GitHub Copilot'
+  | 'ChatGPT Plus'
+  | 'Gemini Advanced'
+  | 'Cursor'
+  | 'Claude'
+  | 'Other';
+
+export type MetricType = 'tickets' | 'prs';
+export type RollingWindow = 30 | 60 | 90;
+export type Recommendation = 'Keep' | 'Monitor' | 'Cut';
 
 export interface Workspace {
   id: string;
@@ -6,15 +18,12 @@ export interface Workspace {
   name: string;
   team_size: number;
   avg_annual_salary: number;
-  monthly_hours: number;
-  baseline_start: string | null;   // "YYYY-MM"
-  baseline_end: string | null;     // "YYYY-MM"
-  baseline_tickets_per_dev: number | null;
-  baseline_story_points: number | null;
-  current_tickets_per_dev: number | null;
-  current_story_points: number | null;
-  current_period_start: string | null; // "YYYY-MM"
-  current_period_end: string | null;   // "YYYY-MM"
+  monthly_hours: number;                      // default 160
+  metric_type: MetricType;                    // 'tickets' | 'prs'
+  rolling_window: RollingWindow;              // 30 | 60 | 90 days
+  baseline_per_dev: number | null;            // avg tickets/PRs per dev per month before AI
+  ai_adoption_month: string | null;           // "YYYY-MM" — when AI tools were introduced
+  current_per_dev: number | null;             // avg tickets/PRs per dev per month now
   created_at: string;
   updated_at: string;
 }
@@ -23,9 +32,9 @@ export interface AIPlatform {
   id: string;
   workspace_id: string;
   name: PlatformName;
-  monthly_cost: number;
+  monthly_cost: number;                       // total monthly cost (flat or seats × per_seat)
   seats: number;
-  adopted_date: string; // "YYYY-MM"
+  adopted_date: string;                       // "YYYY-MM"
   created_at: string;
 }
 
@@ -58,23 +67,9 @@ export interface ROIMetrics {
 export interface PlatformROI {
   platform: AIPlatform;
   roiIndex: number;
-  recommendation: 'Strong ROI' | 'Monitor' | 'Consider removing';
+  recommendation: Recommendation;
   velocityAttribution: number;
   platformValue: number;
-}
-
-export interface VelocityDataPoint {
-  month: string;       // "Jan '24" for display
-  yearMonth: string;   // "2024-01" for comparison
-  tickets: number;
-  baseline: number;
-  isBaseline: boolean;
-}
-
-export interface CostPerTicketPoint {
-  month: string;
-  costPerTicket: number;
-  baselineRef: number;
 }
 
 export interface DeveloperWithScore extends Developer {
@@ -84,6 +79,16 @@ export interface DeveloperWithScore extends Developer {
   attributedAICost: number;
 }
 
+export interface WorkspaceSnapshot {
+  id: string;
+  workspace_id: string;
+  recorded_at: string;                        // ISO date string
+  roi_multiple: number;
+  velocity_lift_pct: number;
+  net_monthly_value: number;
+  total_spend: number;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -91,11 +96,4 @@ export interface AuthUser {
     full_name?: string;
     is_manager?: boolean;
   };
-}
-
-export interface Insight {
-  title: string;
-  body: string;
-  metric: string;
-  type: 'positive' | 'warning' | 'info';
 }
