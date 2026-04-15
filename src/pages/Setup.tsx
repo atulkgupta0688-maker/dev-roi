@@ -1,647 +1,556 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Trash2, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Plus, Trash2, Zap, Terminal, HelpCircle } from 'lucide-react';
-import { MeshBackground } from '../components/MeshBackground';
-import { PlatformBadge } from '../components/PlatformBadge';
-import { Tooltip } from '../components/Tooltip';
 import { useAppStore } from '../lib/store';
-import { saveWorkspace, savePlatforms } from '../lib/hooks/useWorkspace';
-import { calculateHourlyRate, calculateVelocityLift, calculateMonthlyValue, calculatePaybackWeeks } from '../lib/roiEngine';
-import type { PlatformName } from '../lib/types';
+import type { AIPlatform, Developer, MetricType, RollingWindow, PlatformName } from '../lib/types';
+import { MeshBackground } from '../components/MeshBackground';
 
-const PLATFORM_OPTIONS: PlatformName[] = ['Claude', 'ChatGPT', 'GitHub Copilot', 'Gemini', 'Cursor', 'Other'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const YEARS = ['2023', '2024', '2025', '2026'];
-
-const SALARY_PRESETS = [
-  { label: '$80k', value: 80000, desc: 'Junior-heavy' },
-  { label: '$110k', value: 110000, desc: 'Mixed seniority' },
-  { label: '$140k', value: 140000, desc: 'Senior team' },
-  { label: '$170k', value: 170000, desc: 'Lead / Staff' },
-];
-
-const HOURS_PRESETS = [
-  { label: '160h', value: 160, desc: 'Standard' },
-  { label: '140h', value: 140, desc: 'High meetings' },
-  { label: '120h', value: 120, desc: 'Part-time blend' },
-];
-
-// ─── Form Schemas ──────────────────────────────────────────────────────────────
+// ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const step1Schema = z.object({
-  workspaceName: z.string().min(1, 'Required'),
-  teamSize: z.number().min(1).max(500),
-  avgSalary: z.number().min(1000, 'Enter a valid salary'),
-  monthlyHours: z.number().min(1).max(300),
+  name: z.string().min(1, 'Team name is required'),
+  team_size: z.coerce.number().min(1, 'At least 1 developer'),
+  avg_annual_salary: z.coerce.number().min(1, 'Salary is required'),
+  monthly_hours: z.coerce.number().min(1).max(744).default(160),
+  rolling_window: z.coerce.number().refine((v) => [30, 60, 90].includes(v)) as z.ZodType<RollingWindow>,
 });
 
 const step2Schema = z.object({
-  baselineStartMonth: z.string().min(1, 'Required'),
-  baselineStartYear: z.string().min(1, 'Required'),
-  baselineEndMonth: z.string().min(1, 'Required'),
-  baselineEndYear: z.string().min(1, 'Required'),
-  baselineTickets: z.number().min(0.1, 'Required'),
+  metric_type: z.enum(['tickets', 'prs']) as z.ZodType<MetricType>,
+  baseline_per_dev: z.coerce.number().min(0, 'Enter a baseline number'),
+  ai_adoption_month: z.string().regex(/^\d{4}-\d{2}$/, 'Use YYYY-MM format'),
 });
 
 const step4Schema = z.object({
-  currentTickets: z.number().min(0.1, 'Required'),
-  currentStartMonth: z.string().min(1, 'Required'),
-  currentStartYear: z.string().min(1, 'Required'),
-  currentEndMonth: z.string().min(1, 'Required'),
-  currentEndYear: z.string().min(1, 'Required'),
+  current_per_dev: z.coerce.number().min(0, 'Enter current number'),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
 type Step2Data = z.infer<typeof step2Schema>;
 type Step4Data = z.infer<typeof step4Schema>;
 
-interface PlatformForm {
-  id: string;
+// ─── Platform form ────────────────────────────────────────────────────────────
+
+interface PlatformDraft {
   name: PlatformName;
-  monthly_cost: number;
+  cost_type: 'flat' | 'per_seat';
+  flat_cost: number;
+  per_seat_cost: number;
   seats: number;
-  month: string;
-  year: string;
+  adopted_date: string;
 }
 
-// ─── Month/Year picker ─────────────────────────────────────────────────────────
+const PLATFORM_OPTIONS: PlatformName[] = [
+  'GitHub Copilot',
+  'ChatGPT Plus',
+  'Gemini Advanced',
+  'Cursor',
+  'Claude',
+  'Other',
+];
 
-function PeriodPicker({
-  label,
-  monthReg,
-  yearReg,
-  monthError,
-}: {
-  label: string;
-  monthReg: object;
-  yearReg: object;
-  monthError?: string;
-}) {
+function emptyPlatform(): PlatformDraft {
+  return {
+    name: 'GitHub Copilot',
+    cost_type: 'per_seat',
+    flat_cost: 0,
+    per_seat_cost: 19,
+    seats: 1,
+    adopted_date: '',
+  };
+}
+
+function platformToAIPlatform(draft: PlatformDraft, workspaceId: string): Omit<AIPlatform, 'id' | 'created_at'> {
+  const monthly_cost =
+    draft.cost_type === 'flat' ? draft.flat_cost : draft.per_seat_cost * draft.seats;
+  return {
+    workspace_id: workspaceId,
+    name: draft.name,
+    monthly_cost,
+    seats: draft.seats,
+    adopted_date: draft.adopted_date,
+  };
+}
+
+// ─── Developer form ───────────────────────────────────────────────────────────
+
+interface DeveloperDraft {
+  name: string;
+  baseline_tickets: number;
+  current_tickets: number;
+}
+
+function emptyDeveloper(): DeveloperDraft {
+  return { name: '', baseline_tickets: 0, current_tickets: 0 };
+}
+
+// ─── Step components ──────────────────────────────────────────────────────────
+
+function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
-    <div>
-      <label className="text-xs text-white/40 mb-1.5 block">{label}</label>
-      <div className="grid grid-cols-2 gap-2">
-        <select {...(monthReg as object)} className="input-dark">
-          <option value="">Month</option>
-          {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select {...(yearReg as object)} className="input-dark">
-          <option value="">Year</option>
-          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-      {monthError && <p className="text-negative text-xs mt-1">{monthError}</p>}
+    <div className="flex items-center gap-2 mb-8">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-1 rounded-full transition-all duration-300 ${
+            i < current ? 'bg-accent flex-1' : i === current ? 'bg-accent/60 flex-1' : 'bg-white/10 flex-1'
+          }`}
+        />
+      ))}
     </div>
   );
 }
 
-// ─── Setup ─────────────────────────────────────────────────────────────────────
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-red-400 mt-1">{message}</p>;
+}
+
+// ─── Main Setup component ─────────────────────────────────────────────────────
 
 export function Setup() {
-  const [step, setStep] = useState(1);
+  const navigate = useNavigate();
+  const { setWorkspace, setPlatforms, setDevelopers, setHasPendingData } = useAppStore();
+
+  const [step, setStep] = useState(0);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
   const [step2Data, setStep2Data] = useState<Step2Data | null>(null);
-  const [platforms, setPlatforms] = useState<PlatformForm[]>([
-    { id: '1', name: 'GitHub Copilot', monthly_cost: 0, seats: 1, month: 'Jan', year: '2024' },
-  ]);
-  const { user, isDemoMode, setWorkspace, setPlatforms: storePlatforms } = useAppStore();
-  const navigate = useNavigate();
+  const [platforms, setPlatformDrafts] = useState<PlatformDraft[]>([emptyPlatform()]);
+  const [developers, setDeveloperDrafts] = useState<DeveloperDraft[]>([]);
+  const [showDevForm, setShowDevForm] = useState(false);
 
-  const s1 = useForm<Step1Data>({
+  // Step 1 form
+  const form1 = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
-    defaultValues: { teamSize: 8, monthlyHours: 160, avgSalary: 130000 },
+    defaultValues: { monthly_hours: 160, rolling_window: 30 },
   });
-  const s2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) });
-  const s4 = useForm<Step4Data>({ resolver: zodResolver(step4Schema) });
 
-  // Live preview
-  const s1Values = s1.watch();
-  const s4Values = s4.watch();
-  const baselineTickets = step2Data?.baselineTickets ?? 0;
-  const currentTickets = Number(s4Values.currentTickets) || 0;
-  const teamSize = Number(s1Values.teamSize) || 8;
-  const salary = Number(s1Values.avgSalary) || 130000;
-  const hours = Number(s1Values.monthlyHours) || 160;
+  // Step 2 form
+  const form2 = useForm<Step2Data>({
+    resolver: zodResolver(step2Schema),
+    defaultValues: { metric_type: 'tickets' },
+  });
 
-  const hourlyRate = calculateHourlyRate(salary, hours);
-  const monthlyTeamCost = Math.round(hourlyRate * hours * teamSize);
-  const velLift = calculateVelocityLift(baselineTickets, currentTickets);
-  const monthlyValue = calculateMonthlyValue(velLift, teamSize, hourlyRate, hours);
-  const totalAISpend = platforms.reduce((s, p) => s + (p.monthly_cost || 0), 0);
-  const roiMultiple = totalAISpend > 0 ? monthlyValue / totalAISpend : 0;
-  const paybackWeeks = calculatePaybackWeeks(monthlyValue, totalAISpend);
+  // Step 4 form
+  const form4 = useForm<Step4Data>({ resolver: zodResolver(step4Schema) });
 
-  const stepVariants = {
-    enter: { opacity: 0, x: 40 },
-    center: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -40 },
-  };
+  const metricLabel = form2.watch('metric_type') === 'prs' ? 'merged PRs' : 'tickets';
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Step handlers ──
 
-  const handleStep1 = async (data: Step1Data) => {
+  const onStep1 = form1.handleSubmit((data) => {
     setStep1Data(data);
-    if (!isDemoMode && user) {
-      try {
-        const ws = await saveWorkspace(user.id, {
-          name: data.workspaceName,
-          team_size: data.teamSize,
-          avg_annual_salary: data.avgSalary,
-          monthly_hours: data.monthlyHours,
-        });
-        if (ws) setWorkspace(ws);
-      } catch { toast.error('Failed to save. Continuing locally.'); }
-    }
-    setStep(2);
-  };
+    setStep(1);
+  });
 
-  const handleStep2 = (data: Step2Data) => {
+  const onStep2 = form2.handleSubmit((data) => {
     setStep2Data(data);
+    setStep(2);
+  });
+
+  const onStep3 = () => {
+    const valid = platforms.every((p) => p.adopted_date);
+    if (!valid) {
+      toast.error('Every subscription needs an adoption date (YYYY-MM)');
+      return;
+    }
+    if (platforms.length === 0) {
+      toast.error('Add at least one AI subscription');
+      return;
+    }
     setStep(3);
   };
 
-  const handleStep4 = async (data: Step4Data) => {
+  const onStep4 = form4.handleSubmit((data) => {
     if (!step1Data || !step2Data) return;
 
-    const toYM = (month: string, year: string) =>
-      `${year}-${String(MONTHS.indexOf(month) + 1).padStart(2, '0')}`;
+    const workspaceId = `pending-${Date.now()}`;
 
-    const wsData = {
-      name: step1Data.workspaceName,
-      team_size: step1Data.teamSize,
-      avg_annual_salary: step1Data.avgSalary,
-      monthly_hours: step1Data.monthlyHours,
-      baseline_start: toYM(step2Data.baselineStartMonth, step2Data.baselineStartYear),
-      baseline_end: toYM(step2Data.baselineEndMonth, step2Data.baselineEndYear),
-      baseline_tickets_per_dev: step2Data.baselineTickets,
-      baseline_story_points: null,
-      current_tickets_per_dev: data.currentTickets,
-      current_story_points: null,
-      current_period_start: toYM(data.currentStartMonth, data.currentStartYear),
-      current_period_end: toYM(data.currentEndMonth, data.currentEndYear),
+    const workspace = {
+      id: workspaceId,
+      user_id: '',
+      name: step1Data.name,
+      team_size: step1Data.team_size,
+      avg_annual_salary: step1Data.avg_annual_salary,
+      monthly_hours: step1Data.monthly_hours,
+      metric_type: step2Data.metric_type,
+      rolling_window: step1Data.rolling_window,
+      baseline_per_dev: step2Data.baseline_per_dev,
+      ai_adoption_month: step2Data.ai_adoption_month,
+      current_per_dev: data.current_per_dev,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    try {
-      if (!isDemoMode && user) {
-        const ws = await saveWorkspace(user.id, wsData);
-        if (ws) {
-          setWorkspace(ws);
-          const saved = await savePlatforms(
-            ws.id,
-            platforms.map((p) => ({
-              name: p.name,
-              monthly_cost: p.monthly_cost,
-              seats: p.seats,
-              adopted_date: toYM(p.month, p.year),
-            }))
-          );
-          storePlatforms(saved);
-        }
-      } else {
-        setWorkspace({ ...wsData, id: 'local-ws', user_id: 'local', created_at: '', updated_at: '' });
-        storePlatforms(
-          platforms.map((p, i) => ({
-            id: `local-p-${i}`,
-            workspace_id: 'local-ws',
-            name: p.name,
-            monthly_cost: p.monthly_cost,
-            seats: p.seats,
-            adopted_date: toYM(p.month, p.year),
-            created_at: '',
+    const aiPlatforms: AIPlatform[] = platforms.map((p, i) => ({
+      ...platformToAIPlatform(p, workspaceId),
+      id: `pending-platform-${i}`,
+      created_at: new Date().toISOString(),
+    }));
+
+    const devs: Developer[] = showDevForm
+      ? developers
+          .filter((d) => d.name.trim())
+          .map((d, i) => ({
+            id: `pending-dev-${i}`,
+            workspace_id: workspaceId,
+            name: d.name,
+            baseline_tickets: d.baseline_tickets,
+            current_tickets: d.current_tickets,
+            platform_ids: aiPlatforms.map((p) => p.id),
+            created_at: new Date().toISOString(),
           }))
-        );
-      }
-      navigate('/dashboard');
-    } catch {
-      toast.error('Something went wrong saving your data.');
-    }
+      : [];
+
+    setWorkspace(workspace);
+    setPlatforms(aiPlatforms);
+    setDevelopers(devs);
+    setHasPendingData(true);
+    navigate('/dashboard');
+  });
+
+  // ── Platform helpers ──
+
+  const updatePlatform = (i: number, patch: Partial<PlatformDraft>) => {
+    setPlatformDrafts((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
   };
 
-  const addPlatform = () => {
-    if (platforms.length >= 5) return;
-    setPlatforms([...platforms, { id: Date.now().toString(), name: 'Claude', monthly_cost: 0, seats: 1, month: 'Jan', year: '2024' }]);
+  const removePlatform = (i: number) => {
+    setPlatformDrafts((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  const updatePlatform = (id: string, field: string, value: string | number) =>
-    setPlatforms(platforms.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  // ── Developer helpers ──
 
-  const progressPct = ((step - 1) / 3) * 100;
+  const updateDeveloper = (i: number, patch: Partial<DeveloperDraft>) => {
+    setDeveloperDrafts((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  };
+
+  const removeDeveloper = (i: number) => {
+    setDeveloperDrafts((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const STEPS = ['Team basics', 'Baseline', 'Subscriptions', 'Current numbers'];
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative flex items-center justify-center p-6">
       <MeshBackground />
-
-      {/* Header */}
-      <div className="relative z-10 border-b border-white/[0.06] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Zap className="w-5 h-5 text-accent" />
-          <span className="font-heading font-bold text-white">DevROI</span>
+      <div className="relative z-10 w-full max-w-lg">
+        <div className="mb-2 text-xs text-white/30 font-mono uppercase tracking-widest">
+          Step {step + 1} of {STEPS.length} — {STEPS[step]}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-white/30">Step {step} of 4</span>
-          <div className="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-accent rounded-full"
-              animate={{ width: `${progressPct}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-      </div>
+        <StepIndicator current={step} total={STEPS.length} />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-10">
         <AnimatePresence mode="wait">
-
-          {/* ── Step 1: Team ── */}
-          {step === 1 && (
-            <motion.div key="step1" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-            >
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent/70 mb-2">Step 1 of 4</p>
-                <h1 className="font-heading text-3xl font-bold text-white mb-2">Your team</h1>
-                <p className="text-white/40 mb-8 text-sm leading-relaxed">
-                  Start with the basics. We use your salary data to calculate the dollar value of every productivity gain.
-                </p>
-                <form onSubmit={s1.handleSubmit(handleStep1)} className="space-y-5">
+          {/* ── Step 1: Team basics ── */}
+          {step === 0 && (
+            <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <h2 className="font-heading text-2xl font-bold text-white mb-1">Tell us about your team</h2>
+              <p className="text-white/40 text-sm mb-6">This is used to calculate the dollar value of productivity gains.</p>
+              <form onSubmit={onStep1} className="space-y-4">
+                <div>
+                  <label className="label">Team name</label>
+                  <input className="mock-input w-full" placeholder="e.g. Platform Engineering" {...form1.register('name')} />
+                  <FieldError message={form1.formState.errors.name?.message} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm text-white/60 mb-2 block">Team name</label>
-                    <input {...s1.register('workspaceName')} className="input-dark" placeholder="e.g. Platform Engineering" />
-                    {s1.formState.errors.workspaceName && <p className="text-negative text-xs mt-1">{s1.formState.errors.workspaceName.message}</p>}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm text-white/60">Team size (developers)</label>
-                      <span className="font-mono text-accent text-sm">{s1.watch('teamSize') ?? 8}</span>
-                    </div>
-                    <input {...s1.register('teamSize', { valueAsNumber: true })} type="range" min="1" max="200" className="w-full" />
-                  </div>
-
-                  {/* Salary presets */}
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <label className="text-sm text-white/60">Average annual salary</label>
-                      <Tooltip content="Use the blended average across your team — includes base salary, excludes equity and bonuses." />
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                      {SALARY_PRESETS.map((p) => (
-                        <button
-                          key={p.value}
-                          type="button"
-                          onClick={() => s1.setValue('avgSalary', p.value)}
-                          className={`py-2 px-1 rounded-lg border text-center transition-all ${
-                            s1.watch('avgSalary') === p.value
-                              ? 'border-accent bg-accent/10 text-accent'
-                              : 'border-white/10 text-white/40 hover:border-white/30 hover:text-white/70'
-                          }`}
-                        >
-                          <div className="text-xs font-mono font-bold">{p.label}</div>
-                          <div className="text-[10px] text-white/30 mt-0.5">{p.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
-                      <input
-                        {...s1.register('avgSalary', { valueAsNumber: true })}
-                        className="input-dark pl-8"
-                        placeholder="Custom amount"
-                        type="number"
-                      />
-                    </div>
-                    {s1.formState.errors.avgSalary && <p className="text-negative text-xs mt-1">{s1.formState.errors.avgSalary.message}</p>}
-                  </div>
-
-                  {/* Hours presets */}
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <label className="text-sm text-white/60">Monthly coding hours per dev</label>
-                      <Tooltip content="160h = standard full-time. Reduce if your team has a heavy meeting culture — this affects the hourly rate calculation." />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {HOURS_PRESETS.map((p) => (
-                        <button
-                          key={p.value}
-                          type="button"
-                          onClick={() => s1.setValue('monthlyHours', p.value)}
-                          className={`py-2 rounded-lg border text-center transition-all ${
-                            s1.watch('monthlyHours') === p.value
-                              ? 'border-accent bg-accent/10 text-accent'
-                              : 'border-white/10 text-white/40 hover:border-white/30 hover:text-white/70'
-                          }`}
-                        >
-                          <div className="text-xs font-mono font-bold">{p.label}</div>
-                          <div className="text-[10px] text-white/30 mt-0.5">{p.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
-                    Next <ChevronRight className="w-4 h-4" />
-                  </button>
-                </form>
-              </div>
-
-              {/* Live preview */}
-              <div className="card p-6 self-start">
-                <h3 className="text-xs uppercase tracking-widest text-white/30 mb-5">Cost baseline preview</h3>
-                <div className="space-y-5">
-                  <div>
-                    <div className="text-xs text-white/40 mb-1 flex items-center gap-1">
-                      Blended hourly rate per dev
-                      <Tooltip content="Annual salary ÷ 12 months ÷ monthly coding hours. This is how we price every productivity hour your team gains." />
-                    </div>
-                    <div className="font-mono text-2xl text-accent">${Math.round(hourlyRate).toLocaleString()}<span className="text-sm text-white/30">/hr</span></div>
+                    <label className="label">Number of developers</label>
+                    <input type="number" className="mock-input w-full" placeholder="8" {...form1.register('team_size')} />
+                    <FieldError message={form1.formState.errors.team_size?.message} />
                   </div>
                   <div>
-                    <div className="text-xs text-white/40 mb-1">Monthly team payroll cost</div>
-                    <div className="font-mono text-2xl text-white/80">${monthlyTeamCost.toLocaleString()}<span className="text-sm text-white/30">/mo</span></div>
-                  </div>
-                  <div className="border-t border-white/[0.06] pt-4 text-xs text-white/25 leading-relaxed">
-                    Every percent of velocity lift your team gains is worth{' '}
-                    <span className="text-white/50 font-mono">${Math.round(monthlyTeamCost * 0.01).toLocaleString()}/mo</span> to your business.
+                    <label className="label">Avg annual salary (USD)</label>
+                    <input type="number" className="mock-input w-full" placeholder="130000" {...form1.register('avg_annual_salary')} />
+                    <FieldError message={form1.formState.errors.avg_annual_salary?.message} />
                   </div>
                 </div>
-              </div>
+                <div>
+                  <label className="label">Tracking window</label>
+                  <p className="text-xs text-white/30 mb-2">How many days does your "current" period cover?</p>
+                  <div className="flex gap-2">
+                    {[30, 60, 90].map((w) => (
+                      <label key={w} className="flex-1">
+                        <input type="radio" value={w} className="sr-only" {...form1.register('rolling_window')} />
+                        <div className={`text-center py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
+                          String(form1.watch('rolling_window')) === String(w)
+                            ? 'border-accent text-accent bg-accent/10'
+                            : 'border-white/10 text-white/40 hover:border-white/20'
+                        }`}>
+                          {w} days
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <details className="group">
+                  <summary className="text-xs text-white/30 cursor-pointer select-none">Advanced</summary>
+                  <div className="mt-3">
+                    <label className="label">Monthly working hours per dev</label>
+                    <input type="number" className="mock-input w-full" placeholder="160" {...form1.register('monthly_hours')} />
+                    <FieldError message={form1.formState.errors.monthly_hours?.message} />
+                  </div>
+                </details>
+                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
+                  Continue <ChevronRight className="w-4 h-4" />
+                </button>
+              </form>
             </motion.div>
           )}
 
-          {/* ── Step 2: Before AI ── */}
-          {step === 2 && (
-            <motion.div key="step2" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}
-              className="max-w-xl"
-            >
-              <p className="text-xs font-semibold uppercase tracking-widest text-accent/70 mb-2">Step 2 of 4</p>
-              <h1 className="font-heading text-3xl font-bold text-white mb-2">Before AI</h1>
-              <p className="text-white/40 mb-8 text-sm leading-relaxed">
-                Pick a period before your team started using AI tools. This is your productivity baseline — the "control group."
-              </p>
-              <form onSubmit={s2.handleSubmit(handleStep2)} className="space-y-5">
-                <div className="card p-5 space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Baseline period</h3>
-                  <PeriodPicker
-                    label="Start"
-                    monthReg={s2.register('baselineStartMonth')}
-                    yearReg={s2.register('baselineStartYear')}
-                    monthError={s2.formState.errors.baselineStartMonth?.message}
-                  />
-                  <PeriodPicker
-                    label="End"
-                    monthReg={s2.register('baselineEndMonth')}
-                    yearReg={s2.register('baselineEndYear')}
-                  />
-                </div>
-
-                <div className="card p-5">
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <label className="text-sm font-medium text-white/70">Avg tickets closed per dev / month</label>
-                    <Tooltip
-                      content="Find this in Jira → Reports → Velocity Chart. Divide total tickets closed by your team size and the number of months in the period."
-                      width="w-72"
-                    />
+          {/* ── Step 2: Baseline ── */}
+          {step === 1 && (
+            <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <h2 className="font-heading text-2xl font-bold text-white mb-1">Before AI tools</h2>
+              <p className="text-white/40 text-sm mb-6">What did your team's productivity look like before AI was introduced?</p>
+              <form onSubmit={onStep2} className="space-y-4">
+                <div>
+                  <label className="label">How do you measure productivity?</label>
+                  <div className="flex gap-2">
+                    {(['tickets', 'prs'] as const).map((m) => (
+                      <label key={m} className="flex-1">
+                        <input type="radio" value={m} className="sr-only" {...form2.register('metric_type')} />
+                        <div className={`text-center py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
+                          form2.watch('metric_type') === m
+                            ? 'border-accent text-accent bg-accent/10'
+                            : 'border-white/10 text-white/40 hover:border-white/20'
+                        }`}>
+                          {m === 'tickets' ? 'Tickets completed' : 'Merged PRs'}
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                  <input
-                    {...s2.register('baselineTickets', { valueAsNumber: true })}
-                    className="input-dark"
-                    type="number"
-                    step="0.1"
-                    placeholder="e.g. 11"
-                  />
-                  {s2.formState.errors.baselineTickets && (
-                    <p className="text-negative text-xs mt-1">{s2.formState.errors.baselineTickets.message}</p>
-                  )}
-                  <p className="text-xs text-white/25 mt-2 leading-relaxed">
-                    Not sure? Check your Jira velocity report or sprint review history. Story points work too — just be consistent with step 4.
-                  </p>
                 </div>
-
+                <div>
+                  <label className="label">Avg {metricLabel} per developer per month (before AI)</label>
+                  <input type="number" step="0.1" className="mock-input w-full" placeholder="10" {...form2.register('baseline_per_dev')} />
+                  <FieldError message={form2.formState.errors.baseline_per_dev?.message} />
+                </div>
+                <div>
+                  <label className="label">When did your team start using AI tools?</label>
+                  <input type="month" className="mock-input w-full" {...form2.register('ai_adoption_month')} />
+                  <FieldError message={form2.formState.errors.ai_adoption_month?.message} />
+                </div>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setStep(1)} className="btn-ghost flex items-center gap-2">
+                  <button type="button" onClick={() => setStep(0)} className="btn-ghost flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Back
                   </button>
                   <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
-                    Next <ChevronRight className="w-4 h-4" />
+                    Continue <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </form>
             </motion.div>
           )}
 
-          {/* ── Step 3: AI Platforms ── */}
-          {step === 3 && (
-            <motion.div key="step3" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
-              <p className="text-xs font-semibold uppercase tracking-widest text-accent/70 mb-2">Step 3 of 4</p>
-              <h1 className="font-heading text-3xl font-bold text-white mb-2">Your AI tools</h1>
-              <p className="text-white/40 mb-8 text-sm leading-relaxed">
-                Add every AI platform your team pays for. We attribute ROI based on when each tool was adopted, so earlier tools get more credit.
-              </p>
-
-              <div className="space-y-4 mb-6 max-w-2xl">
-                {platforms.map((p, idx) => (
-                  <motion.div
-                    key={p.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="card p-5"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <PlatformBadge name={p.name} size="sm" />
-                        <span className="text-sm font-medium text-white">{p.name}</span>
-                      </div>
+          {/* ── Step 3: Subscriptions ── */}
+          {step === 2 && (
+            <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <h2 className="font-heading text-2xl font-bold text-white mb-1">AI subscriptions</h2>
+              <p className="text-white/40 text-sm mb-6">Add every AI tool your team pays for. These will be ranked by ROI.</p>
+              <div className="space-y-3 mb-4">
+                {platforms.map((p, i) => (
+                  <div key={i} className="card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-white/40 font-mono">Subscription {i + 1}</span>
                       {platforms.length > 1 && (
-                        <button
-                          onClick={() => setPlatforms(platforms.filter((x) => x.id !== p.id))}
-                          className="p-1.5 rounded-lg hover:bg-negative/10 text-white/30 hover:text-negative transition-colors"
-                        >
+                        <button onClick={() => removePlatform(i)} className="text-white/20 hover:text-red-400 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="col-span-2 md:col-span-1">
-                        <label className="text-xs text-white/40 mb-1.5 block">Platform</label>
-                        <select value={p.name} onChange={(e) => updatePlatform(p.id, 'name', e.target.value as PlatformName)} className="input-dark">
-                          {PLATFORM_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1 mb-1.5">
-                          <label className="text-xs text-white/40">Monthly cost ($)</label>
-                          <Tooltip content="Total monthly subscription cost for this platform, across all seats." />
-                        </div>
-                        <input value={p.monthly_cost} onChange={(e) => updatePlatform(p.id, 'monthly_cost', Number(e.target.value))} className="input-dark" type="number" placeholder="800" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1 mb-1.5">
-                          <label className="text-xs text-white/40">Seats</label>
-                          <Tooltip content="How many developers have active licences on this platform." />
-                        </div>
-                        <input value={p.seats} onChange={(e) => updatePlatform(p.id, 'seats', Number(e.target.value))} className="input-dark" type="number" min="1" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1 mb-1.5">
-                          <label className="text-xs text-white/40">Adopted</label>
-                          <Tooltip content="The month your team first started actively using this tool." />
-                        </div>
-                        <div className="grid grid-cols-2 gap-1">
-                          <select value={p.month} onChange={(e) => updatePlatform(p.id, 'month', e.target.value)} className="input-dark text-xs px-2">
-                            {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                          <select value={p.year} onChange={(e) => updatePlatform(p.id, 'year', e.target.value)} className="input-dark text-xs px-2">
-                            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                          </select>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="label">Tool</label>
+                      <select
+                        className="mock-input w-full"
+                        value={p.name}
+                        onChange={(e) => updatePlatform(i, { name: e.target.value as PlatformName })}
+                      >
+                        {PLATFORM_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              {platforms.length < 5 && (
-                <button onClick={addPlatform} className="btn-ghost flex items-center gap-2 mb-8">
-                  <Plus className="w-4 h-4" /> Add another platform
-                </button>
-              )}
-
-              <div className="flex items-center justify-between max-w-2xl p-4 bg-card-dark border border-white/[0.06] rounded-lg mb-6">
-                <span className="text-sm text-white/50">Total monthly AI spend</span>
-                <span className="font-mono text-accent text-lg">${totalAISpend.toLocaleString()}<span className="text-white/30 text-sm">/mo</span></span>
-              </div>
-
-              <div className="flex gap-3 max-w-2xl">
-                <button onClick={() => setStep(2)} className="btn-ghost flex items-center gap-2">
-                  <ChevronLeft className="w-4 h-4" /> Back
-                </button>
-                <button onClick={() => setStep(4)} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                  Next <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Step 4: Current Performance ── */}
-          {step === 4 && (
-            <motion.div key="step4" variants={stepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-            >
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent/70 mb-2">Step 4 of 4</p>
-                <h1 className="font-heading text-3xl font-bold text-white mb-2">After AI</h1>
-                <p className="text-white/40 mb-8 text-sm leading-relaxed">
-                  Your current numbers — same metric as step 2. The delta between these two periods is how we calculate your velocity lift.
-                </p>
-                <form onSubmit={s4.handleSubmit(handleStep4)} className="space-y-5">
-                  <div className="card p-5">
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <label className="text-sm font-medium text-white/70">Avg tickets closed per dev / month</label>
-                      <Tooltip
-                        content="Same metric as step 2 — tickets per developer per month. Pull from the same report for a fair comparison."
-                        width="w-72"
+                    <div>
+                      <label className="label">Pricing</label>
+                      <div className="flex gap-2 mb-2">
+                        {(['flat', 'per_seat'] as const).map((ct) => (
+                          <label key={ct} className="flex-1">
+                            <input type="radio" className="sr-only" checked={p.cost_type === ct} onChange={() => updatePlatform(i, { cost_type: ct })} />
+                            <div className={`text-center py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                              p.cost_type === ct ? 'border-accent text-accent bg-accent/10' : 'border-white/10 text-white/40 hover:border-white/20'
+                            }`}>
+                              {ct === 'flat' ? 'Flat rate' : 'Per seat'}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      {p.cost_type === 'flat' ? (
+                        <div>
+                          <label className="label">Total monthly cost (USD)</label>
+                          <input
+                            type="number"
+                            className="mock-input w-full"
+                            placeholder="500"
+                            value={p.flat_cost || ''}
+                            onChange={(e) => updatePlatform(i, { flat_cost: Number(e.target.value) })}
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="label">Cost per seat (USD/mo)</label>
+                            <input
+                              type="number"
+                              className="mock-input w-full"
+                              placeholder="19"
+                              value={p.per_seat_cost || ''}
+                              onChange={(e) => updatePlatform(i, { per_seat_cost: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div>
+                            <label className="label">Seats</label>
+                            <input
+                              type="number"
+                              className="mock-input w-full"
+                              placeholder="8"
+                              value={p.seats || ''}
+                              onChange={(e) => updatePlatform(i, { seats: Number(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="label">Adoption date</label>
+                      <input
+                        type="month"
+                        className="mock-input w-full"
+                        value={p.adopted_date}
+                        onChange={(e) => updatePlatform(i, { adopted_date: e.target.value })}
                       />
                     </div>
-                    <input
-                      {...s4.register('currentTickets', { valueAsNumber: true })}
-                      className="input-dark"
-                      type="number"
-                      step="0.1"
-                      placeholder="e.g. 16"
-                    />
-                    {s4.formState.errors.currentTickets && (
-                      <p className="text-negative text-xs mt-1">{s4.formState.errors.currentTickets.message}</p>
-                    )}
                   </div>
-
-                  <div className="card p-5 space-y-4">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Current period</h3>
-                    <PeriodPicker
-                      label="Start"
-                      monthReg={s4.register('currentStartMonth')}
-                      yearReg={s4.register('currentStartYear')}
-                      monthError={s4.formState.errors.currentStartMonth?.message}
-                    />
-                    <PeriodPicker
-                      label="End"
-                      monthReg={s4.register('currentEndMonth')}
-                      yearReg={s4.register('currentEndYear')}
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setStep(3)} className="btn-ghost flex items-center gap-2">
-                      <ChevronLeft className="w-4 h-4" /> Back
-                    </button>
-                    <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
-                      Generate my dashboard <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </form>
+                ))}
               </div>
-
-              {/* Live ROI terminal */}
-              <div className="card p-6 bg-obsidian self-start">
-                <div className="flex items-center gap-2 mb-4">
-                  <Terminal className="w-4 h-4 text-accent/60" />
-                  <span className="text-xs text-white/30 font-mono">roi_preview.ts</span>
-                </div>
-                <div className="space-y-3 font-mono text-sm">
-                  <div>
-                    <span className="text-white/25">// velocity lift vs baseline</span>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-white/50">velocity_lift</span>
-                      <motion.span key={velLift} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className={velLift > 0 ? 'text-positive' : 'text-white/30'}
-                      >
-                        {velLift > 0 ? '+' : ''}{Math.round(velLift)}%
-                      </motion.span>
-                    </div>
-                  </div>
-                  <div className="border-t border-white/[0.06] pt-3">
-                    <span className="text-white/25">// monthly productivity value</span>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-white/50">monthly_value</span>
-                      <motion.span key={monthlyValue} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-accent">
-                        ${Math.round(monthlyValue).toLocaleString()}
-                      </motion.span>
-                    </div>
-                  </div>
-                  <div className="border-t border-white/[0.06] pt-3">
-                    <span className="text-white/25">// value ÷ AI spend</span>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-white/50">roi_multiple</span>
-                      <motion.span key={roiMultiple} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className={roiMultiple > 1 ? 'text-positive' : 'text-negative'}
-                      >
-                        {roiMultiple > 0 ? `${roiMultiple.toFixed(1)}×` : '—'}
-                      </motion.span>
-                    </div>
-                  </div>
-                  <div className="border-t border-white/[0.06] pt-3">
-                    <span className="text-white/25">// months to break even</span>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-white/50">payback</span>
-                      <motion.span key={paybackWeeks} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-accent">
-                        {isFinite(paybackWeeks) && paybackWeeks < 999
-                          ? paybackWeeks < 1 ? '< 1 week' : `${Math.round(paybackWeeks)}w`
-                          : '—'}
-                      </motion.span>
-                    </div>
-                  </div>
-                  <div className="text-accent/40 animate-blink mt-1">▋</div>
-                </div>
+              <button
+                onClick={() => setPlatformDrafts((prev) => [...prev, emptyPlatform()])}
+                className="btn-ghost w-full flex items-center justify-center gap-2 mb-4"
+              >
+                <Plus className="w-4 h-4" /> Add another subscription
+              </button>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="btn-ghost flex items-center gap-1">
+                  <ChevronLeft className="w-4 h-4" /> Back
+                </button>
+                <button onClick={onStep3} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                  Continue <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </motion.div>
           )}
 
+          {/* ── Step 4: Current numbers ── */}
+          {step === 3 && (
+            <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <h2 className="font-heading text-2xl font-bold text-white mb-1">Current performance</h2>
+              <p className="text-white/40 text-sm mb-6">
+                What's your team averaging now? Use the last {step1Data?.rolling_window ?? 30} days.
+              </p>
+              <form onSubmit={onStep4} className="space-y-4">
+                <div>
+                  <label className="label">Avg {metricLabel} per developer per month (now)</label>
+                  <input type="number" step="0.1" className="mock-input w-full" placeholder="15" {...form4.register('current_per_dev')} />
+                  <FieldError message={form4.formState.errors.current_per_dev?.message} />
+                </div>
+
+                <div className="border border-white/[0.06] rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm text-white">Per-developer breakdown</p>
+                      <p className="text-xs text-white/40">Optional — enables individual leverage scores</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDevForm(!showDevForm);
+                        if (!showDevForm && developers.length === 0) {
+                          setDeveloperDrafts([emptyDeveloper()]);
+                        }
+                      }}
+                      className="text-xs text-accent hover:text-white transition-colors"
+                    >
+                      {showDevForm ? 'Hide' : 'Add'}
+                    </button>
+                  </div>
+                  {showDevForm && (
+                    <div className="space-y-3">
+                      {developers.map((d, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_80px_80px_24px] gap-2 items-end">
+                          <div>
+                            {i === 0 && <label className="label">Name</label>}
+                            <input
+                              className="mock-input w-full"
+                              placeholder="Developer name"
+                              value={d.name}
+                              onChange={(e) => updateDeveloper(i, { name: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            {i === 0 && <label className="label">Before</label>}
+                            <input
+                              type="number"
+                              className="mock-input w-full"
+                              placeholder="10"
+                              value={d.baseline_tickets || ''}
+                              onChange={(e) => updateDeveloper(i, { baseline_tickets: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div>
+                            {i === 0 && <label className="label">Now</label>}
+                            <input
+                              type="number"
+                              className="mock-input w-full"
+                              placeholder="15"
+                              value={d.current_tickets || ''}
+                              onChange={(e) => updateDeveloper(i, { current_tickets: Number(e.target.value) })}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeDeveloper(i)}
+                            className="text-white/20 hover:text-red-400 transition-colors pb-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setDeveloperDrafts((prev) => [...prev, emptyDeveloper()])}
+                        className="text-xs text-white/30 hover:text-white/60 flex items-center gap-1 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" /> Add developer
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setStep(2)} className="btn-ghost flex items-center gap-1">
+                    <ChevronLeft className="w-4 h-4" /> Back
+                  </button>
+                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
+                    See my ROI <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
