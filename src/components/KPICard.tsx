@@ -1,0 +1,94 @@
+import { motion } from 'framer-motion';
+import { useCountUp } from '../lib/hooks/useCountUp';
+import { clsx } from 'clsx';
+import { Tooltip } from './Tooltip';
+import type { ReactNode } from 'react';
+
+interface KPICardProps {
+  label: string;
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  subtitle?: string;
+  delta?: number;
+  decimals?: number;
+  color?: 'cyan' | 'green' | 'red' | 'white';
+  tooltip?: string;
+  icon?: ReactNode;
+  delay?: number;
+}
+
+export function KPICard({
+  label,
+  value,
+  prefix = '',
+  suffix = '',
+  subtitle,
+  delta,
+  decimals = 0,
+  color = 'cyan',
+  tooltip,
+  icon,
+  delay = 0,
+}: KPICardProps) {
+  const animatedValue = useCountUp({ end: value, decimals, duration: 1400 });
+
+  const colorMap = {
+    cyan: '#00D4FF',
+    green: '#00FF94',
+    red: '#FF4D6D',
+    white: 'rgba(255,255,255,0.87)',
+  };
+
+  const displayValue =
+    decimals > 0 ? animatedValue.toFixed(decimals) : Math.round(animatedValue).toLocaleString();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay }}
+      className="card p-5 cursor-default"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium uppercase tracking-widest text-white/40">
+            {label}
+          </span>
+          {tooltip && <Tooltip content={tooltip} />}
+        </div>
+        {icon && <div className="text-white/20">{icon}</div>}
+      </div>
+
+      <div
+        className="font-mono text-3xl font-medium tabular-nums leading-none mb-2"
+        style={{ color: colorMap[color] }}
+      >
+        {prefix}
+        {displayValue}
+        {suffix}
+      </div>
+
+      {(subtitle || delta !== undefined) && (
+        <div className="flex items-center gap-2 mt-2">
+          {delta !== undefined && (
+            <span
+              className={clsx(
+                'text-xs font-mono font-medium px-1.5 py-0.5 rounded',
+                delta >= 0
+                  ? 'text-positive bg-positive/10'
+                  : 'text-negative bg-negative/10'
+              )}
+            >
+              {delta >= 0 ? '+' : ''}
+              {delta.toFixed(1)}%
+            </span>
+          )}
+          {subtitle && (
+            <span className="text-xs text-white/40">{subtitle}</span>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+}

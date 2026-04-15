@@ -1,0 +1,272 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #080A0E;
+    color: rgba(255, 255, 255, 0.87);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0F1117;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.3);
+  }
+
+  ::selection {
+    background: rgba(0, 212, 255, 0.2);
+    color: #00D4FF;
+  }
+}
+
+@layer components {
+  /* Card styles */
+  .card {
+    @apply bg-card-dark border border-white/[0.06] rounded-xl transition-all duration-200;
+  }
+
+  .card:hover {
+    box-shadow: inset 0 0 0 1px rgba(0, 212, 255, 0.15), 0 0 30px rgba(0, 212, 255, 0.05);
+  }
+
+  /* Metric number display */
+  .metric-value {
+    @apply font-mono text-accent tabular-nums;
+  }
+
+  /* Glow effect for accent elements */
+  .accent-glow {
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+  }
+
+  /* Glass morphism */
+  .glass {
+    background: rgba(15, 17, 23, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Button styles */
+  .btn-primary {
+    @apply bg-accent text-obsidian font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:bg-accent-dark hover:shadow-glow-accent active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply border border-accent/30 text-accent font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:bg-accent/10 hover:border-accent/60 active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply text-white/60 font-medium px-4 py-2 rounded-lg transition-all duration-200 hover:text-white hover:bg-white/5 active:scale-95;
+  }
+
+  /* Input styles */
+  .input-dark {
+    @apply bg-obsidian border border-white/10 rounded-lg px-4 py-3 text-white w-full transition-all duration-200 outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 placeholder:text-white/30;
+  }
+
+  /* Badge styles */
+  .badge-green {
+    @apply bg-positive/10 text-positive border border-positive/20 text-xs font-medium px-2 py-1 rounded-md;
+  }
+
+  .badge-amber {
+    @apply bg-amber/10 text-amber border border-amber/20 text-xs font-medium px-2 py-1 rounded-md;
+  }
+
+  .badge-red {
+    @apply bg-negative/10 text-negative border border-negative/20 text-xs font-medium px-2 py-1 rounded-md;
+  }
+
+  .badge-cyan {
+    @apply bg-accent/10 text-accent border border-accent/20 text-xs font-medium px-2 py-1 rounded-md;
+  }
+
+  /* Sidebar active state */
+  .nav-item-active {
+    @apply text-accent bg-accent/5 border-l-2 border-accent;
+  }
+
+  /* Chart tooltip */
+  .chart-tooltip {
+    @apply bg-card-dark border border-white/10 rounded-lg p-3 shadow-xl;
+  }
+}
+
+/* Animated mesh gradient background */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mesh-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.04;
+}
+
+.mesh-blob-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #00D4FF 0%, transparent 70%);
+  top: -200px;
+  left: -100px;
+  animation: meshShift 12s ease-in-out infinite;
+}
+
+.mesh-blob-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #7C3AED 0%, transparent 70%);
+  bottom: -150px;
+  right: -100px;
+  animation: meshShiftAlt 16s ease-in-out infinite;
+}
+
+.mesh-blob-3 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #0891B2 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: meshShiftThird 20s ease-in-out infinite;
+}
+
+/* Page transition wrapper */
+.page-enter {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+/* Print styles for CBA Report */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .print-report {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}
+
+/* Custom range slider */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  height: 4px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #00D4FF;
+  border-radius: 50%;
+  margin-top: -7px;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+  transition: box-shadow 0.2s;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+}
+
+input[type='range']::-moz-range-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  height: 4px;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #00D4FF;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+}
+
+/* Recharts overrides */
+.recharts-text {
+  fill: rgba(255, 255, 255, 0.5) !important;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(255, 255, 255, 0.05) !important;
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+/* Animated line drawing */
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-line {
+  stroke-dasharray: 1000;
+  animation: drawLine 2s ease-in-out forwards;
+}
