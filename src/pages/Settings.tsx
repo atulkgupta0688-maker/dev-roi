@@ -8,7 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { Trash2, AlertTriangle, Save, Loader2 } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { useAppStore } from '../lib/store';
-import { saveWorkspace } from '../lib/hooks/useWorkspace';
+import { saveWorkspace, saveSnapshot } from '../lib/hooks/useWorkspace';
+import { calculateROIMetrics } from '../lib/roiEngine';
 import { supabase } from '../lib/supabase';
 
 const workspaceSchema = z.object({
@@ -55,7 +56,15 @@ export function Settings() {
     try {
       if (!isDemoMode && user) {
         const updated = await saveWorkspace(user.id, { ...workspace, ...data });
-        if (updated) setWorkspace(updated);
+        if (updated) {
+          setWorkspace(updated);
+          const { platforms, developers, snapshots, setSnapshots } = useAppStore.getState();
+          if (platforms.length > 0) {
+            const metrics = calculateROIMetrics({ workspace: updated, platforms, developers });
+            const snapshot = await saveSnapshot(updated.id, metrics);
+            setSnapshots([...snapshots, snapshot]);
+          }
+        }
       } else {
         setWorkspace({ ...workspace, ...data });
       }
