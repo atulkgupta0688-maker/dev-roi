@@ -11,6 +11,7 @@ interface KPICardProps {
   suffix?: string;
   subtitle?: string;
   delta?: number;
+  trend?: { previous: number; label: string };
   decimals?: number;
   color?: 'cyan' | 'green' | 'red' | 'white';
   tooltip?: string;
@@ -25,6 +26,7 @@ export function KPICard({
   suffix = '',
   subtitle,
   delta,
+  trend,
   decimals = 0,
   color = 'cyan',
   tooltip,
@@ -43,6 +45,11 @@ export function KPICard({
   const displayValue =
     decimals > 0 ? animatedValue.toFixed(decimals) : Math.round(animatedValue).toLocaleString();
 
+  const trendDelta = trend ? value - trend.previous : null;
+  const trendPct = trend && trend.previous !== 0
+    ? ((value - trend.previous) / Math.abs(trend.previous)) * 100
+    : null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -52,41 +59,33 @@ export function KPICard({
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium uppercase tracking-widest text-white/40">
-            {label}
-          </span>
+          <span className="text-xs font-medium uppercase tracking-widest text-white/40">{label}</span>
           {tooltip && <Tooltip content={tooltip} />}
         </div>
         {icon && <div className="text-white/20">{icon}</div>}
       </div>
 
-      <div
-        className="font-mono text-3xl font-medium tabular-nums leading-none mb-2"
-        style={{ color: colorMap[color] }}
-      >
-        {prefix}
-        {displayValue}
-        {suffix}
+      <div className="font-mono text-3xl font-medium tabular-nums leading-none mb-2" style={{ color: colorMap[color] }}>
+        {prefix}{displayValue}{suffix}
       </div>
 
       {(subtitle || delta !== undefined) && (
         <div className="flex items-center gap-2 mt-2">
           {delta !== undefined && (
-            <span
-              className={clsx(
-                'text-xs font-mono font-medium px-1.5 py-0.5 rounded',
-                delta >= 0
-                  ? 'text-positive bg-positive/10'
-                  : 'text-negative bg-negative/10'
-              )}
-            >
-              {delta >= 0 ? '+' : ''}
-              {delta.toFixed(1)}%
+            <span className={clsx('text-xs font-mono font-medium px-1.5 py-0.5 rounded', delta >= 0 ? 'text-positive bg-positive/10' : 'text-negative bg-negative/10')}>
+              {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
             </span>
           )}
-          {subtitle && (
-            <span className="text-xs text-white/40">{subtitle}</span>
-          )}
+          {subtitle && <span className="text-xs text-white/40">{subtitle}</span>}
+        </div>
+      )}
+
+      {trend && trendDelta !== null && trendPct !== null && (
+        <div className="mt-2 pt-2 border-t border-white/[0.06] flex items-center gap-1.5">
+          <span className={clsx('text-xs font-mono', trendDelta >= 0 ? 'text-positive' : 'text-negative')}>
+            {trendDelta >= 0 ? '▲' : '▼'} {trendPct >= 0 ? '+' : ''}{trendPct.toFixed(1)}%
+          </span>
+          <span className="text-xs text-white/30">vs {trend.label}</span>
         </div>
       )}
     </motion.div>
