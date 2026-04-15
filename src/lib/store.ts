@@ -83,7 +83,6 @@ export const useAppStore = create<AppState>((set) => ({
       workspace: DEMO_DATA.workspace,
       platforms: DEMO_DATA.platforms,
       developers: DEMO_DATA.developers,
-      // @ts-expect-error snapshots added in Task 6
       snapshots: DEMO_DATA.snapshots,
     });
   },

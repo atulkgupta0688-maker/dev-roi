@@ -1,13 +1,11 @@
-import type { WorkspaceData, VelocityDataPoint } from './types';
-
-// ─── Demo Workspace ───────────────────────────────────────────────────────────
+import type { WorkspaceData, WorkspaceSnapshot } from './types';
 
 const DEMO_WORKSPACE_ID = 'demo-workspace-001';
-const DEMO_CLAUDE_ID = 'demo-platform-claude';
 const DEMO_COPILOT_ID = 'demo-platform-copilot';
 const DEMO_CHATGPT_ID = 'demo-platform-chatgpt';
+const DEMO_GEMINI_ID = 'demo-platform-gemini';
 
-export const DEMO_DATA: WorkspaceData = {
+export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
   workspace: {
     id: DEMO_WORKSPACE_ID,
     user_id: 'demo-user-001',
@@ -15,27 +13,15 @@ export const DEMO_DATA: WorkspaceData = {
     team_size: 8,
     avg_annual_salary: 130000,
     monthly_hours: 160,
-    baseline_start: '2024-01',
-    baseline_end: '2024-06',
-    baseline_tickets_per_dev: 11,
-    baseline_story_points: 34,
-    current_tickets_per_dev: 16,
-    current_story_points: 49,
-    current_period_start: '2024-07',
-    current_period_end: '2024-12',
+    metric_type: 'tickets',
+    rolling_window: 30,
+    baseline_per_dev: 11,
+    ai_adoption_month: '2024-07',
+    current_per_dev: 16,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
   platforms: [
-    {
-      id: DEMO_CLAUDE_ID,
-      workspace_id: DEMO_WORKSPACE_ID,
-      name: 'Claude',
-      monthly_cost: 800,
-      seats: 8,
-      adopted_date: '2024-07',
-      created_at: new Date().toISOString(),
-    },
     {
       id: DEMO_COPILOT_ID,
       workspace_id: DEMO_WORKSPACE_ID,
@@ -48,7 +34,16 @@ export const DEMO_DATA: WorkspaceData = {
     {
       id: DEMO_CHATGPT_ID,
       workspace_id: DEMO_WORKSPACE_ID,
-      name: 'ChatGPT',
+      name: 'ChatGPT Plus',
+      monthly_cost: 200,
+      seats: 8,
+      adopted_date: '2024-07',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: DEMO_GEMINI_ID,
+      workspace_id: DEMO_WORKSPACE_ID,
+      name: 'Gemini Advanced',
       monthly_cost: 600,
       seats: 8,
       adopted_date: '2024-09',
@@ -62,7 +57,7 @@ export const DEMO_DATA: WorkspaceData = {
       name: 'Arjun Mehta',
       baseline_tickets: 10,
       current_tickets: 17,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID],
+      platform_ids: [DEMO_COPILOT_ID, DEMO_CHATGPT_ID],
       created_at: new Date().toISOString(),
     },
     {
@@ -70,8 +65,8 @@ export const DEMO_DATA: WorkspaceData = {
       workspace_id: DEMO_WORKSPACE_ID,
       name: 'Sara Kim',
       baseline_tickets: 12,
-      current_tickets: 19,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID, DEMO_CHATGPT_ID],
+      current_tickets: 20,
+      platform_ids: [DEMO_COPILOT_ID, DEMO_CHATGPT_ID, DEMO_GEMINI_ID],
       created_at: new Date().toISOString(),
     },
     {
@@ -79,120 +74,67 @@ export const DEMO_DATA: WorkspaceData = {
       workspace_id: DEMO_WORKSPACE_ID,
       name: 'Dev Patel',
       baseline_tickets: 11,
-      current_tickets: 12,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID, DEMO_CHATGPT_ID],
+      current_tickets: 15,
+      platform_ids: [DEMO_COPILOT_ID],
       created_at: new Date().toISOString(),
     },
     {
       id: 'dev-004',
       workspace_id: DEMO_WORKSPACE_ID,
-      name: 'Priya Nair',
+      name: 'Jamie Torres',
       baseline_tickets: 9,
-      current_tickets: 16,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID],
+      current_tickets: 10,
+      platform_ids: [DEMO_GEMINI_ID],
       created_at: new Date().toISOString(),
     },
+  ],
+  snapshots: [
     {
-      id: 'dev-005',
+      id: 'snap-001',
       workspace_id: DEMO_WORKSPACE_ID,
-      name: 'Tom Walsh',
-      baseline_tickets: 13,
-      current_tickets: 14,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID],
-      created_at: new Date().toISOString(),
+      recorded_at: '2024-08-01T00:00:00Z',
+      roi_multiple: 2.1,
+      velocity_lift_pct: 18,
+      net_monthly_value: 3200,
+      total_spend: 600,
     },
     {
-      id: 'dev-006',
+      id: 'snap-002',
       workspace_id: DEMO_WORKSPACE_ID,
-      name: 'Zara Ahmed',
-      baseline_tickets: 10,
-      current_tickets: 18,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID],
-      created_at: new Date().toISOString(),
+      recorded_at: '2024-10-01T00:00:00Z',
+      roi_multiple: 2.8,
+      velocity_lift_pct: 27,
+      net_monthly_value: 4100,
+      total_spend: 1200,
     },
     {
-      id: 'dev-007',
+      id: 'snap-003',
       workspace_id: DEMO_WORKSPACE_ID,
-      name: 'Lucas Ferreira',
-      baseline_tickets: 11,
-      current_tickets: 17,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID, DEMO_CHATGPT_ID],
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 'dev-008',
-      workspace_id: DEMO_WORKSPACE_ID,
-      name: 'Ming Chen',
-      baseline_tickets: 12,
-      current_tickets: 20,
-      platform_ids: [DEMO_CLAUDE_ID, DEMO_COPILOT_ID],
-      created_at: new Date().toISOString(),
+      recorded_at: '2025-01-01T00:00:00Z',
+      roi_multiple: 3.2,
+      velocity_lift_pct: 45,
+      net_monthly_value: 6200,
+      total_spend: 1200,
     },
   ],
 };
 
-// ─── Fixed Velocity Chart Data ────────────────────────────────────────────────
-// Pre-computed for demo to ensure consistent, realistic-looking chart
+export const CHART_COLORS = ['#00D4FF', '#00FF94', '#6366F1', '#F59E0B', '#FF4D6D'];
 
-export const DEMO_VELOCITY_DATA: VelocityDataPoint[] = [
-  { month: "Jan '24", yearMonth: '2024-01', tickets: 85,  baseline: 88, isBaseline: true },
-  { month: "Feb '24", yearMonth: '2024-02', tickets: 90,  baseline: 88, isBaseline: true },
-  { month: "Mar '24", yearMonth: '2024-03', tickets: 87,  baseline: 88, isBaseline: true },
-  { month: "Apr '24", yearMonth: '2024-04', tickets: 91,  baseline: 88, isBaseline: true },
-  { month: "May '24", yearMonth: '2024-05', tickets: 86,  baseline: 88, isBaseline: true },
-  { month: "Jun '24", yearMonth: '2024-06', tickets: 89,  baseline: 88, isBaseline: true },
-  { month: "Jul '24", yearMonth: '2024-07', tickets: 101, baseline: 88, isBaseline: false },
-  { month: "Aug '24", yearMonth: '2024-08', tickets: 119, baseline: 88, isBaseline: false },
-  { month: "Sep '24", yearMonth: '2024-09', tickets: 126, baseline: 88, isBaseline: false },
-  { month: "Oct '24", yearMonth: '2024-10', tickets: 129, baseline: 88, isBaseline: false },
-  { month: "Nov '24", yearMonth: '2024-11', tickets: 132, baseline: 88, isBaseline: false },
-  { month: "Dec '24", yearMonth: '2024-12', tickets: 135, baseline: 88, isBaseline: false },
-];
-
-// ─── Session Storage Helpers ──────────────────────────────────────────────────
+const SESSION_KEY = 'dev-roi-demo';
 
 export function saveDemoToSession(): void {
-  sessionStorage.setItem('devroi_demo_mode', 'true');
-  sessionStorage.setItem('devroi_demo_data', JSON.stringify(DEMO_DATA));
-}
-
-export function loadDemoFromSession(): WorkspaceData | null {
-  const data = sessionStorage.getItem('devroi_demo_data');
-  if (!data) return null;
-  try {
-    return JSON.parse(data) as WorkspaceData;
-  } catch {
-    return null;
-  }
-}
-
-export function isDemoSession(): boolean {
-  return sessionStorage.getItem('devroi_demo_mode') === 'true';
+  sessionStorage.setItem(SESSION_KEY, 'true');
 }
 
 export function clearDemoSession(): void {
-  sessionStorage.removeItem('devroi_demo_mode');
-  sessionStorage.removeItem('devroi_demo_data');
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
-// ─── Platform Colors ──────────────────────────────────────────────────────────
+export function isDemoSession(): boolean {
+  return sessionStorage.getItem(SESSION_KEY) === 'true';
+}
 
-export const PLATFORM_COLORS: Record<string, string> = {
-  Claude: '#CC785C',
-  ChatGPT: '#10A37F',
-  'GitHub Copilot': '#6E40C9',
-  Gemini: '#4285F4',
-  Cursor: '#1A1A2E',
-  Other: '#6B7280',
-};
-
-export const PLATFORM_ICONS: Record<string, string> = {
-  Claude: 'C',
-  ChatGPT: 'G',
-  'GitHub Copilot': 'Co',
-  Gemini: 'Ge',
-  Cursor: 'Cu',
-  Other: '?',
-};
-
-export const CHART_COLORS = ['#00D4FF', '#00FF94', '#CC785C', '#6E40C9', '#10A37F'];
+export function loadDemoFromSession(): typeof DEMO_DATA | null {
+  return isDemoSession() ? DEMO_DATA : null;
+}
