@@ -16,7 +16,7 @@ const step1Schema = z.object({
   name: z.string().min(1, 'Team name is required'),
   team_size: z.coerce.number().min(1, 'At least 1 developer'),
   avg_annual_salary: z.coerce.number().min(1, 'Salary is required'),
-  monthly_hours: z.coerce.number().min(1).max(744).default(160),
+  monthly_hours: z.coerce.number().min(1).default(160),
   rolling_window: z.coerce.number().refine((v) => [30, 60, 90].includes(v)) as z.ZodType<RollingWindow>,
 });
 
@@ -254,18 +254,18 @@ export function Setup() {
               <form onSubmit={onStep1} className="space-y-4">
                 <div>
                   <label className="label">Team name</label>
-                  <input className="mock-input w-full" placeholder="e.g. Platform Engineering" {...form1.register('name')} />
+                  <input className="input-dark w-full" placeholder="e.g. Platform Engineering" {...form1.register('name')} />
                   <FieldError message={form1.formState.errors.name?.message} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="label">Number of developers</label>
-                    <input type="number" className="mock-input w-full" placeholder="8" {...form1.register('team_size')} />
+                    <input type="number" className="input-dark w-full" placeholder="8" {...form1.register('team_size')} />
                     <FieldError message={form1.formState.errors.team_size?.message} />
                   </div>
                   <div>
                     <label className="label">Avg annual salary (USD)</label>
-                    <input type="number" className="mock-input w-full" placeholder="130000" {...form1.register('avg_annual_salary')} />
+                    <input type="number" className="input-dark w-full" placeholder="130000" {...form1.register('avg_annual_salary')} />
                     <FieldError message={form1.formState.errors.avg_annual_salary?.message} />
                   </div>
                 </div>
@@ -291,7 +291,7 @@ export function Setup() {
                   <summary className="text-xs text-white/30 cursor-pointer select-none">Advanced</summary>
                   <div className="mt-3">
                     <label className="label">Monthly working hours per dev</label>
-                    <input type="number" className="mock-input w-full" placeholder="160" {...form1.register('monthly_hours')} />
+                    <input type="number" className="input-dark w-full" placeholder="160" {...form1.register('monthly_hours')} />
                     <FieldError message={form1.formState.errors.monthly_hours?.message} />
                   </div>
                 </details>
@@ -327,12 +327,12 @@ export function Setup() {
                 </div>
                 <div>
                   <label className="label">Avg {metricLabel} per developer per month (before AI)</label>
-                  <input type="number" step="0.1" className="mock-input w-full" placeholder="10" {...form2.register('baseline_per_dev')} />
+                  <input type="number" step="0.1" className="input-dark w-full" placeholder="10" {...form2.register('baseline_per_dev')} />
                   <FieldError message={form2.formState.errors.baseline_per_dev?.message} />
                 </div>
                 <div>
                   <label className="label">When did your team start using AI tools?</label>
-                  <input type="month" className="mock-input w-full" {...form2.register('ai_adoption_month')} />
+                  <input type="month" className="input-dark w-full" {...form2.register('ai_adoption_month')} />
                   <FieldError message={form2.formState.errors.ai_adoption_month?.message} />
                 </div>
                 <div className="flex gap-3">
@@ -366,7 +366,7 @@ export function Setup() {
                     <div>
                       <label className="label">Tool</label>
                       <select
-                        className="mock-input w-full"
+                        className="input-dark w-full"
                         value={p.name}
                         onChange={(e) => updatePlatform(i, { name: e.target.value as PlatformName })}
                       >
@@ -394,7 +394,7 @@ export function Setup() {
                           <label className="label">Total monthly cost (USD)</label>
                           <input
                             type="number"
-                            className="mock-input w-full"
+                            className="input-dark w-full"
                             placeholder="500"
                             value={p.flat_cost || ''}
                             onChange={(e) => updatePlatform(i, { flat_cost: Number(e.target.value) })}
@@ -406,7 +406,7 @@ export function Setup() {
                             <label className="label">Cost per seat (USD/mo)</label>
                             <input
                               type="number"
-                              className="mock-input w-full"
+                              className="input-dark w-full"
                               placeholder="19"
                               value={p.per_seat_cost || ''}
                               onChange={(e) => updatePlatform(i, { per_seat_cost: Number(e.target.value) })}
@@ -416,7 +416,7 @@ export function Setup() {
                             <label className="label">Seats</label>
                             <input
                               type="number"
-                              className="mock-input w-full"
+                              className="input-dark w-full"
                               placeholder="8"
                               value={p.seats || ''}
                               onChange={(e) => updatePlatform(i, { seats: Number(e.target.value) })}
@@ -429,7 +429,7 @@ export function Setup() {
                       <label className="label">Adoption date</label>
                       <input
                         type="month"
-                        className="mock-input w-full"
+                        className="input-dark w-full"
                         value={p.adopted_date}
                         onChange={(e) => updatePlatform(i, { adopted_date: e.target.value })}
                       />
@@ -464,7 +464,7 @@ export function Setup() {
               <form onSubmit={onStep4} className="space-y-4">
                 <div>
                   <label className="label">Avg {metricLabel} per developer per month (now)</label>
-                  <input type="number" step="0.1" className="mock-input w-full" placeholder="15" {...form4.register('current_per_dev')} />
+                  <input type="number" step="0.1" className="input-dark w-full" placeholder="15" {...form4.register('current_per_dev')} />
                   <FieldError message={form4.formState.errors.current_per_dev?.message} />
                 </div>
 
@@ -494,7 +494,7 @@ export function Setup() {
                           <div>
                             {i === 0 && <label className="label">Name</label>}
                             <input
-                              className="mock-input w-full"
+                              className="input-dark w-full"
                               placeholder="Developer name"
                               value={d.name}
                               onChange={(e) => updateDeveloper(i, { name: e.target.value })}
@@ -504,7 +504,7 @@ export function Setup() {
                             {i === 0 && <label className="label">Before</label>}
                             <input
                               type="number"
-                              className="mock-input w-full"
+                              className="input-dark w-full"
                               placeholder="10"
                               value={d.baseline_tickets || ''}
                               onChange={(e) => updateDeveloper(i, { baseline_tickets: Number(e.target.value) })}
@@ -514,7 +514,7 @@ export function Setup() {
                             {i === 0 && <label className="label">Now</label>}
                             <input
                               type="number"
-                              className="mock-input w-full"
+                              className="input-dark w-full"
                               placeholder="15"
                               value={d.current_tickets || ''}
                               onChange={(e) => updateDeveloper(i, { current_tickets: Number(e.target.value) })}
