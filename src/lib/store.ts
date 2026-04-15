@@ -1,21 +1,22 @@
 import { create } from 'zustand';
-import type { Workspace, AIPlatform, Developer, AuthUser } from './types';
+import type { Workspace, AIPlatform, Developer, AuthUser, WorkspaceSnapshot } from './types';
 import { DEMO_DATA, saveDemoToSession, clearDemoSession, isDemoSession, loadDemoFromSession } from './demoData';
 
 interface AppState {
   // Auth
   user: AuthUser | null;
   isDemoMode: boolean;
+  hasPendingData: boolean;   // true when wizard complete but user not yet saved
 
   // Data
   workspace: Workspace | null;
   platforms: AIPlatform[];
   developers: Developer[];
+  snapshots: WorkspaceSnapshot[];
 
   // UI
   isAuthModalOpen: boolean;
   authModalTab: 'signin' | 'signup';
-  isWaitlistModalOpen: boolean;
 
   // Actions
   setUser: (user: AuthUser | null) => void;
@@ -23,45 +24,43 @@ interface AppState {
   setWorkspace: (workspace: Workspace | null) => void;
   setPlatforms: (platforms: AIPlatform[]) => void;
   setDevelopers: (developers: Developer[]) => void;
+  setSnapshots: (snapshots: WorkspaceSnapshot[]) => void;
   addDeveloper: (dev: Developer) => void;
   updateDeveloper: (dev: Developer) => void;
   removeDeveloper: (devId: string) => void;
+  setHasPendingData: (pending: boolean) => void;
   loadDemoData: () => void;
   clearData: () => void;
   setAuthModalOpen: (open: boolean, tab?: 'signin' | 'signup') => void;
-  setWaitlistModalOpen: (open: boolean) => void;
   initFromSession: () => void;
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
-  // Initial state
+export const useAppStore = create<AppState>((set) => ({
   user: null,
   isDemoMode: false,
+  hasPendingData: false,
   workspace: null,
   platforms: [],
   developers: [],
+  snapshots: [],
   isAuthModalOpen: false,
   authModalTab: 'signin',
-  isWaitlistModalOpen: false,
 
-  // Actions
   setUser: (user) => {
     if (user) {
-      // Logging in as a real user — clear any lingering demo session
       clearDemoSession();
-      set({ user, isDemoMode: false, workspace: null, platforms: [], developers: [] });
+      set({ user, isDemoMode: false });
     } else {
       set({ user });
     }
   },
 
   setDemoMode: (demo) => set({ isDemoMode: demo }),
-
   setWorkspace: (workspace) => set({ workspace }),
-
   setPlatforms: (platforms) => set({ platforms }),
-
   setDevelopers: (developers) => set({ developers }),
+  setSnapshots: (snapshots) => set({ snapshots }),
+  setHasPendingData: (hasPendingData) => set({ hasPendingData }),
 
   addDeveloper: (dev) =>
     set((state) => ({ developers: [...state.developers, dev] })),
@@ -80,9 +79,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveDemoToSession();
     set({
       isDemoMode: true,
+      hasPendingData: false,
       workspace: DEMO_DATA.workspace,
       platforms: DEMO_DATA.platforms,
       developers: DEMO_DATA.developers,
+      // @ts-expect-error snapshots added in Task 6
+      snapshots: DEMO_DATA.snapshots,
     });
   },
 
@@ -90,16 +92,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     clearDemoSession();
     set({
       isDemoMode: false,
+      hasPendingData: false,
       workspace: null,
       platforms: [],
       developers: [],
+      snapshots: [],
     });
   },
 
   setAuthModalOpen: (open, tab) =>
     set({ isAuthModalOpen: open, ...(tab ? { authModalTab: tab } : {}) }),
-
-  setWaitlistModalOpen: (open) => set({ isWaitlistModalOpen: open }),
 
   initFromSession: () => {
     if (isDemoSession()) {
@@ -110,13 +112,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           workspace: data.workspace,
           platforms: data.platforms,
           developers: data.developers,
+          snapshots: (data as any).snapshots ?? [],
         });
       }
     }
   },
 }));
 
-// Selector helpers
 export const selectWorkspaceData = (state: AppState) => ({
   workspace: state.workspace,
   platforms: state.platforms,
@@ -125,5 +127,5 @@ export const selectWorkspaceData = (state: AppState) => ({
 
 export const selectHasData = (state: AppState) =>
   state.workspace !== null &&
-  (state.workspace.baseline_tickets_per_dev !== null ||
-    state.workspace.current_tickets_per_dev !== null);
+  state.workspace.baseline_per_dev !== null &&
+  state.workspace.current_per_dev !== null;
