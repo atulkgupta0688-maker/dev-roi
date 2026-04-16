@@ -35,6 +35,7 @@ export interface AIPlatform {
   monthly_cost: number;                       // total monthly cost (flat or seats × per_seat)
   seats: number;
   adopted_date: string;                       // "YYYY-MM"
+  usage_percent: number;                      // 0–100
   created_at: string;
 }
 

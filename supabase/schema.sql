@@ -1,5 +1,6 @@
 -- DevROI Supabase Schema
 -- Run this in your Supabase SQL editor
+-- Migration: ALTER TABLE ai_platforms ADD COLUMN IF NOT EXISTS usage_percent integer NOT NULL DEFAULT 0;
 
 create table public.workspaces (
   id uuid primary key default gen_random_uuid(),
@@ -24,6 +25,7 @@ create table public.ai_platforms (
   monthly_cost numeric not null,
   seats int not null default 1,
   adopted_date text not null,
+  usage_percent int not null default 0,
   created_at timestamptz default now()
 );
 
