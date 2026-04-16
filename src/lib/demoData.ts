@@ -29,6 +29,7 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       monthly_cost: 400,
       seats: 8,
       adopted_date: '2024-07',
+      usage_percent: 55,
       created_at: new Date().toISOString(),
     },
     {
@@ -38,6 +39,7 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       monthly_cost: 200,
       seats: 8,
       adopted_date: '2024-07',
+      usage_percent: 30,
       created_at: new Date().toISOString(),
     },
     {
@@ -47,6 +49,7 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       monthly_cost: 600,
       seats: 8,
       adopted_date: '2024-09',
+      usage_percent: 15,
       created_at: new Date().toISOString(),
     },
   ],

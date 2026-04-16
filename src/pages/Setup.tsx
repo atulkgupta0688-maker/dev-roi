@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '../lib/store';
-import type { AIPlatform, Developer, MetricType, RollingWindow, PlatformName } from '../lib/types';
+import { savePendingWorkspace } from '../lib/hooks/useWorkspace';
+import type { AIPlatform, PlatformName } from '../lib/types';
 import { MeshBackground } from '../components/MeshBackground';
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -15,24 +16,9 @@ import { MeshBackground } from '../components/MeshBackground';
 const step1Schema = z.object({
   name: z.string().min(1, 'Team name is required'),
   team_size: z.coerce.number().min(1, 'At least 1 developer'),
-  avg_annual_salary: z.coerce.number().min(1, 'Salary is required'),
-  monthly_hours: z.coerce.number().min(1).default(160),
-  rolling_window: z.coerce.number().refine((v) => [30, 60, 90].includes(v)) as z.ZodType<RollingWindow>,
-});
-
-const step2Schema = z.object({
-  metric_type: z.enum(['tickets', 'prs']) as z.ZodType<MetricType>,
-  baseline_per_dev: z.coerce.number().min(0, 'Enter a baseline number'),
-  ai_adoption_month: z.string().regex(/^\d{4}-\d{2}$/, 'Use YYYY-MM format'),
-});
-
-const step4Schema = z.object({
-  current_per_dev: z.coerce.number().min(0, 'Enter current number'),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
-type Step2Data = z.infer<typeof step2Schema>;
-type Step4Data = z.infer<typeof step4Schema>;
 
 // ─── Platform form ────────────────────────────────────────────────────────────
 
@@ -43,6 +29,7 @@ interface PlatformDraft {
   per_seat_cost: number;
   seats: number;
   adopted_date: string;
+  usage_percent: number;
 }
 
 const PLATFORM_OPTIONS: PlatformName[] = [
@@ -54,7 +41,7 @@ const PLATFORM_OPTIONS: PlatformName[] = [
   'Other',
 ];
 
-function emptyPlatform(): PlatformDraft {
+function emptyPlatform(count: number): PlatformDraft {
   return {
     name: 'GitHub Copilot',
     cost_type: 'per_seat',
@@ -62,10 +49,14 @@ function emptyPlatform(): PlatformDraft {
     per_seat_cost: 19,
     seats: 1,
     adopted_date: '',
+    usage_percent: Math.round(100 / count),
   };
 }
 
-function platformToAIPlatform(draft: PlatformDraft, workspaceId: string): Omit<AIPlatform, 'id' | 'created_at'> {
+function platformToAIPlatform(
+  draft: PlatformDraft,
+  workspaceId: string
+): Omit<AIPlatform, 'id' | 'created_at'> {
   const monthly_cost =
     draft.cost_type === 'flat' ? draft.flat_cost : draft.per_seat_cost * draft.seats;
   return {
@@ -74,19 +65,8 @@ function platformToAIPlatform(draft: PlatformDraft, workspaceId: string): Omit<A
     monthly_cost,
     seats: draft.seats,
     adopted_date: draft.adopted_date,
+    usage_percent: draft.usage_percent,
   };
-}
-
-// ─── Developer form ───────────────────────────────────────────────────────────
-
-interface DeveloperDraft {
-  name: string;
-  baseline_tickets: number;
-  current_tickets: number;
-}
-
-function emptyDeveloper(): DeveloperDraft {
-  return { name: '', baseline_tickets: 0, current_tickets: 0 };
 }
 
 // ─── Step components ──────────────────────────────────────────────────────────
@@ -115,45 +95,23 @@ function FieldError({ message }: { message?: string }) {
 
 export function Setup() {
   const navigate = useNavigate();
-  const { setWorkspace, setPlatforms, setDevelopers, setHasPendingData } = useAppStore();
+  const { user, setWorkspace, setPlatforms, setDevelopers, setHasPendingData } = useAppStore();
 
   const [step, setStep] = useState(0);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
-  const [step2Data, setStep2Data] = useState<Step2Data | null>(null);
-  const [platforms, setPlatformDrafts] = useState<PlatformDraft[]>([emptyPlatform()]);
-  const [developers, setDeveloperDrafts] = useState<DeveloperDraft[]>([]);
-  const [showDevForm, setShowDevForm] = useState(false);
+  const [platforms, setPlatformDrafts] = useState<PlatformDraft[]>([emptyPlatform(1)]);
 
-  // Step 1 form
-  const form1 = useForm<Step1Data>({
-    resolver: zodResolver(step1Schema),
-    defaultValues: { monthly_hours: 160, rolling_window: 30 },
-  });
+  const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) });
 
-  // Step 2 form
-  const form2 = useForm<Step2Data>({
-    resolver: zodResolver(step2Schema),
-    defaultValues: { metric_type: 'tickets' },
-  });
-
-  // Step 4 form
-  const form4 = useForm<Step4Data>({ resolver: zodResolver(step4Schema) });
-
-  const metricLabel = form2.watch('metric_type') === 'prs' ? 'merged PRs' : 'tickets';
-
-  // ── Step handlers ──
+  const totalUsage = platforms.reduce((sum, p) => sum + (p.usage_percent || 0), 0);
+  const usageWarning = totalUsage < 90 || totalUsage > 110;
 
   const onStep1 = form1.handleSubmit((data) => {
     setStep1Data(data);
     setStep(1);
   });
 
-  const onStep2 = form2.handleSubmit((data) => {
-    setStep2Data(data);
-    setStep(2);
-  });
-
-  const onStep3 = () => {
+  const onStep2 = () => {
     const valid = platforms.every((p) => p.adopted_date);
     if (!valid) {
       toast.error('Every subscription needs an adoption date (YYYY-MM)');
@@ -163,11 +121,7 @@ export function Setup() {
       toast.error('Add at least one AI subscription');
       return;
     }
-    setStep(3);
-  };
-
-  const onStep4 = form4.handleSubmit((data) => {
-    if (!step1Data || !step2Data) return;
+    if (!step1Data) return;
 
     const workspaceId = `pending-${Date.now()}`;
 
@@ -176,13 +130,13 @@ export function Setup() {
       user_id: '',
       name: step1Data.name,
       team_size: step1Data.team_size,
-      avg_annual_salary: step1Data.avg_annual_salary,
-      monthly_hours: step1Data.monthly_hours,
-      metric_type: step2Data.metric_type,
-      rolling_window: step1Data.rolling_window,
-      baseline_per_dev: step2Data.baseline_per_dev,
-      ai_adoption_month: step2Data.ai_adoption_month,
-      current_per_dev: data.current_per_dev,
+      avg_annual_salary: 0,
+      monthly_hours: 160,
+      metric_type: 'tickets' as const,
+      rolling_window: 30 as const,
+      baseline_per_dev: null,
+      ai_adoption_month: null,
+      current_per_dev: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -193,28 +147,26 @@ export function Setup() {
       created_at: new Date().toISOString(),
     }));
 
-    const devs: Developer[] = showDevForm
-      ? developers
-          .filter((d) => d.name.trim())
-          .map((d, i) => ({
-            id: `pending-dev-${i}`,
-            workspace_id: workspaceId,
-            name: d.name,
-            baseline_tickets: d.baseline_tickets,
-            current_tickets: d.current_tickets,
-            platform_ids: aiPlatforms.map((p) => p.id),
-            created_at: new Date().toISOString(),
-          }))
-      : [];
-
     setWorkspace(workspace);
     setPlatforms(aiPlatforms);
-    setDevelopers(devs);
-    setHasPendingData(true);
-    navigate('/dashboard');
-  });
+    setDevelopers([]);
 
-  // ── Platform helpers ──
+    if (user) {
+      setHasPendingData(false);
+      savePendingWorkspace(user.id, workspace, aiPlatforms, [])
+        .then((saved) => {
+          setWorkspace(saved.workspace);
+          setPlatforms(saved.platforms);
+          setDevelopers(saved.developers);
+          toast.success('Workspace saved!');
+        })
+        .catch(() => toast.error('Failed to save workspace. Please try again.'));
+    } else {
+      setHasPendingData(true);
+    }
+
+    navigate('/dashboard');
+  };
 
   const updatePlatform = (i: number, patch: Partial<PlatformDraft>) => {
     setPlatformDrafts((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
@@ -224,17 +176,14 @@ export function Setup() {
     setPlatformDrafts((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  // ── Developer helpers ──
-
-  const updateDeveloper = (i: number, patch: Partial<DeveloperDraft>) => {
-    setDeveloperDrafts((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  const addPlatform = () => {
+    setPlatformDrafts((prev) => {
+      const next = [...prev, emptyPlatform(prev.length + 1)];
+      return next;
+    });
   };
 
-  const removeDeveloper = (i: number) => {
-    setDeveloperDrafts((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  const STEPS = ['Team basics', 'Baseline', 'Subscriptions', 'Current numbers'];
+  const STEPS = ['Team basics', 'Subscriptions'];
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-6">
@@ -250,51 +199,18 @@ export function Setup() {
           {step === 0 && (
             <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h2 className="font-heading text-2xl font-bold text-white mb-1">Tell us about your team</h2>
-              <p className="text-white/40 text-sm mb-6">This is used to calculate the dollar value of productivity gains.</p>
+              <p className="text-white/40 text-sm mb-6">We'll use this to track your AI spend.</p>
               <form onSubmit={onStep1} className="space-y-4">
                 <div>
                   <label className="label">Team name</label>
                   <input className="input-dark w-full" placeholder="e.g. Platform Engineering" {...form1.register('name')} />
                   <FieldError message={form1.formState.errors.name?.message} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Number of developers</label>
-                    <input type="number" className="input-dark w-full" placeholder="8" {...form1.register('team_size')} />
-                    <FieldError message={form1.formState.errors.team_size?.message} />
-                  </div>
-                  <div>
-                    <label className="label">Avg annual salary (USD)</label>
-                    <input type="number" className="input-dark w-full" placeholder="130000" {...form1.register('avg_annual_salary')} />
-                    <FieldError message={form1.formState.errors.avg_annual_salary?.message} />
-                  </div>
-                </div>
                 <div>
-                  <label className="label">Tracking window</label>
-                  <p className="text-xs text-white/30 mb-2">How many days does your "current" period cover?</p>
-                  <div className="flex gap-2">
-                    {[30, 60, 90].map((w) => (
-                      <label key={w} className="flex-1">
-                        <input type="radio" value={w} className="sr-only" {...form1.register('rolling_window')} />
-                        <div className={`text-center py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
-                          String(form1.watch('rolling_window')) === String(w)
-                            ? 'border-accent text-accent bg-accent/10'
-                            : 'border-white/10 text-white/40 hover:border-white/20'
-                        }`}>
-                          {w} days
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+                  <label className="label">Number of developers</label>
+                  <input type="number" className="input-dark w-full" placeholder="8" {...form1.register('team_size')} />
+                  <FieldError message={form1.formState.errors.team_size?.message} />
                 </div>
-                <details className="group">
-                  <summary className="text-xs text-white/30 cursor-pointer select-none">Advanced</summary>
-                  <div className="mt-3">
-                    <label className="label">Monthly working hours per dev</label>
-                    <input type="number" className="input-dark w-full" placeholder="160" {...form1.register('monthly_hours')} />
-                    <FieldError message={form1.formState.errors.monthly_hours?.message} />
-                  </div>
-                </details>
                 <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
                   Continue <ChevronRight className="w-4 h-4" />
                 </button>
@@ -302,56 +218,18 @@ export function Setup() {
             </motion.div>
           )}
 
-          {/* ── Step 2: Baseline ── */}
+          {/* ── Step 2: Subscriptions ── */}
           {step === 1 && (
             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="font-heading text-2xl font-bold text-white mb-1">Before AI tools</h2>
-              <p className="text-white/40 text-sm mb-6">What did your team's productivity look like before AI was introduced?</p>
-              <form onSubmit={onStep2} className="space-y-4">
-                <div>
-                  <label className="label">How do you measure productivity?</label>
-                  <div className="flex gap-2">
-                    {(['tickets', 'prs'] as const).map((m) => (
-                      <label key={m} className="flex-1">
-                        <input type="radio" value={m} className="sr-only" {...form2.register('metric_type')} />
-                        <div className={`text-center py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
-                          form2.watch('metric_type') === m
-                            ? 'border-accent text-accent bg-accent/10'
-                            : 'border-white/10 text-white/40 hover:border-white/20'
-                        }`}>
-                          {m === 'tickets' ? 'Tickets completed' : 'Merged PRs'}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Avg {metricLabel} per developer per month (before AI)</label>
-                  <input type="number" step="0.1" className="input-dark w-full" placeholder="10" {...form2.register('baseline_per_dev')} />
-                  <FieldError message={form2.formState.errors.baseline_per_dev?.message} />
-                </div>
-                <div>
-                  <label className="label">When did your team start using AI tools?</label>
-                  <input type="month" className="input-dark w-full" {...form2.register('ai_adoption_month')} />
-                  <FieldError message={form2.formState.errors.ai_adoption_month?.message} />
-                </div>
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setStep(0)} className="btn-ghost flex items-center gap-1">
-                    <ChevronLeft className="w-4 h-4" /> Back
-                  </button>
-                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
-                    Continue <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          )}
-
-          {/* ── Step 3: Subscriptions ── */}
-          {step === 2 && (
-            <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h2 className="font-heading text-2xl font-bold text-white mb-1">AI subscriptions</h2>
-              <p className="text-white/40 text-sm mb-6">Add every AI tool your team pays for. These will be ranked by ROI.</p>
+              <p className="text-white/40 text-sm mb-6">Add every AI tool your team pays for and estimate how much of your work happens in each.</p>
+
+              {usageWarning && (
+                <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400">
+                  Usage percentages should add up to ~100% (currently {totalUsage}%)
+                </div>
+              )}
+
               <div className="space-y-3 mb-4">
                 {platforms.map((p, i) => (
                   <div key={i} className="card p-4 space-y-3">
@@ -425,130 +303,46 @@ export function Setup() {
                         </div>
                       )}
                     </div>
-                    <div>
-                      <label className="label">Adoption date</label>
-                      <input
-                        type="month"
-                        className="input-dark w-full"
-                        value={p.adopted_date}
-                        onChange={(e) => updatePlatform(i, { adopted_date: e.target.value })}
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="label">Adoption date</label>
+                        <input
+                          type="month"
+                          className="input-dark w-full"
+                          value={p.adopted_date}
+                          onChange={(e) => updatePlatform(i, { adopted_date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Estimated usage (%)</label>
+                        <input
+                          type="number"
+                          className="input-dark w-full"
+                          placeholder="50"
+                          min={0}
+                          max={100}
+                          value={p.usage_percent || ''}
+                          onChange={(e) => updatePlatform(i, { usage_percent: Number(e.target.value) })}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
               <button
-                onClick={() => setPlatformDrafts((prev) => [...prev, emptyPlatform()])}
+                onClick={addPlatform}
                 className="btn-ghost w-full flex items-center justify-center gap-2 mb-4"
               >
                 <Plus className="w-4 h-4" /> Add another subscription
               </button>
               <div className="flex gap-3">
-                <button onClick={() => setStep(1)} className="btn-ghost flex items-center gap-1">
+                <button onClick={() => setStep(0)} className="btn-ghost flex items-center gap-1">
                   <ChevronLeft className="w-4 h-4" /> Back
                 </button>
-                <button onClick={onStep3} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                  Continue <ChevronRight className="w-4 h-4" />
+                <button onClick={onStep2} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                  See my spend <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-            </motion.div>
-          )}
-
-          {/* ── Step 4: Current numbers ── */}
-          {step === 3 && (
-            <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="font-heading text-2xl font-bold text-white mb-1">Current performance</h2>
-              <p className="text-white/40 text-sm mb-6">
-                What's your team averaging now? Use the last {step1Data?.rolling_window ?? 30} days.
-              </p>
-              <form onSubmit={onStep4} className="space-y-4">
-                <div>
-                  <label className="label">Avg {metricLabel} per developer per month (now)</label>
-                  <input type="number" step="0.1" className="input-dark w-full" placeholder="15" {...form4.register('current_per_dev')} />
-                  <FieldError message={form4.formState.errors.current_per_dev?.message} />
-                </div>
-
-                <div className="border border-white/[0.06] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="text-sm text-white">Per-developer breakdown</p>
-                      <p className="text-xs text-white/40">Optional — enables individual leverage scores</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowDevForm(!showDevForm);
-                        if (!showDevForm && developers.length === 0) {
-                          setDeveloperDrafts([emptyDeveloper()]);
-                        }
-                      }}
-                      className="text-xs text-accent hover:text-white transition-colors"
-                    >
-                      {showDevForm ? 'Hide' : 'Add'}
-                    </button>
-                  </div>
-                  {showDevForm && (
-                    <div className="space-y-3">
-                      {developers.map((d, i) => (
-                        <div key={i} className="grid grid-cols-[1fr_80px_80px_24px] gap-2 items-end">
-                          <div>
-                            {i === 0 && <label className="label">Name</label>}
-                            <input
-                              className="input-dark w-full"
-                              placeholder="Developer name"
-                              value={d.name}
-                              onChange={(e) => updateDeveloper(i, { name: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            {i === 0 && <label className="label">Before</label>}
-                            <input
-                              type="number"
-                              className="input-dark w-full"
-                              placeholder="10"
-                              value={d.baseline_tickets || ''}
-                              onChange={(e) => updateDeveloper(i, { baseline_tickets: Number(e.target.value) })}
-                            />
-                          </div>
-                          <div>
-                            {i === 0 && <label className="label">Now</label>}
-                            <input
-                              type="number"
-                              className="input-dark w-full"
-                              placeholder="15"
-                              value={d.current_tickets || ''}
-                              onChange={(e) => updateDeveloper(i, { current_tickets: Number(e.target.value) })}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeDeveloper(i)}
-                            className="text-white/20 hover:text-red-400 transition-colors pb-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setDeveloperDrafts((prev) => [...prev, emptyDeveloper()])}
-                        className="text-xs text-white/30 hover:text-white/60 flex items-center gap-1 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" /> Add developer
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setStep(2)} className="btn-ghost flex items-center gap-1">
-                    <ChevronLeft className="w-4 h-4" /> Back
-                  </button>
-                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
-                    See my ROI <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </form>
             </motion.div>
           )}
         </AnimatePresence>
