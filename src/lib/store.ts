@@ -1,26 +1,14 @@
 import { create } from 'zustand';
-import type { Workspace, AIPlatform, Developer, AuthUser, WorkspaceSnapshot } from './types';
-import { DEMO_DATA, saveDemoToSession, clearDemoSession, isDemoSession, loadDemoFromSession } from './demoData';
+import type { Workspace, AIPlatform, Developer, WorkspaceSnapshot } from './types';
+import { DEMO_DATA } from './demoData';
 
 interface AppState {
-  // Auth
-  user: AuthUser | null;
   isDemoMode: boolean;
-  hasPendingData: boolean;   // true when wizard complete but user not yet saved
-
-  // Data
   workspace: Workspace | null;
   platforms: AIPlatform[];
   developers: Developer[];
   snapshots: WorkspaceSnapshot[];
 
-  // UI
-  isAuthModalOpen: boolean;
-  authModalTab: 'signin' | 'signup';
-
-  // Actions
-  setUser: (user: AuthUser | null) => void;
-  setDemoMode: (demo: boolean) => void;
   setWorkspace: (workspace: Workspace | null) => void;
   setPlatforms: (platforms: AIPlatform[]) => void;
   setDevelopers: (developers: Developer[]) => void;
@@ -28,39 +16,24 @@ interface AppState {
   addDeveloper: (dev: Developer) => void;
   updateDeveloper: (dev: Developer) => void;
   removeDeveloper: (devId: string) => void;
-  setHasPendingData: (pending: boolean) => void;
+
+  saveWorkspaceData: (workspace: Workspace, platforms: AIPlatform[], developers?: Developer[]) => void;
+
   loadDemoData: () => void;
   clearData: () => void;
-  setAuthModalOpen: (open: boolean, tab?: 'signin' | 'signup') => void;
-  initFromSession: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  user: null,
   isDemoMode: false,
-  hasPendingData: false,
   workspace: null,
   platforms: [],
   developers: [],
   snapshots: [],
-  isAuthModalOpen: false,
-  authModalTab: 'signin',
 
-  setUser: (user) => {
-    if (user) {
-      clearDemoSession();
-      set({ user, isDemoMode: false });
-    } else {
-      set({ user });
-    }
-  },
-
-  setDemoMode: (demo) => set({ isDemoMode: demo }),
   setWorkspace: (workspace) => set({ workspace }),
   setPlatforms: (platforms) => set({ platforms }),
   setDevelopers: (developers) => set({ developers }),
   setSnapshots: (snapshots) => set({ snapshots }),
-  setHasPendingData: (hasPendingData) => set({ hasPendingData }),
 
   addDeveloper: (dev) =>
     set((state) => ({ developers: [...state.developers, dev] })),
@@ -75,11 +48,13 @@ export const useAppStore = create<AppState>((set) => ({
       developers: state.developers.filter((d) => d.id !== devId),
     })),
 
+  saveWorkspaceData: (workspace, platforms, developers = []) => {
+    set({ workspace, platforms, developers, isDemoMode: false });
+  },
+
   loadDemoData: () => {
-    saveDemoToSession();
     set({
       isDemoMode: true,
-      hasPendingData: false,
       workspace: DEMO_DATA.workspace,
       platforms: DEMO_DATA.platforms,
       developers: DEMO_DATA.developers,
@@ -88,33 +63,13 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   clearData: () => {
-    clearDemoSession();
     set({
       isDemoMode: false,
-      hasPendingData: false,
       workspace: null,
       platforms: [],
       developers: [],
       snapshots: [],
     });
-  },
-
-  setAuthModalOpen: (open, tab) =>
-    set({ isAuthModalOpen: open, ...(tab ? { authModalTab: tab } : {}) }),
-
-  initFromSession: () => {
-    if (isDemoSession()) {
-      const data = loadDemoFromSession();
-      if (data) {
-        set({
-          isDemoMode: true,
-          workspace: data.workspace,
-          platforms: data.platforms,
-          developers: data.developers,
-          snapshots: (data as any).snapshots ?? [],
-        });
-      }
-    }
   },
 }));
 
