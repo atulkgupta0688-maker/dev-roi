@@ -6,8 +6,8 @@ import { useAppStore } from '../lib/store';
 
 const FEATURES = [
   { icon: TrendingUp, text: 'Measure velocity lift from baseline to today' },
-  { icon: DollarSign, text: 'See net ROI per subscription — Keep, Monitor, or Cut' },
-  { icon: BarChart3, text: 'Track whether ROI improves month over month' },
+  { icon: DollarSign, text: 'See net ROI per subscription' },
+  { icon: BarChart3, text: 'Track productivity month over month' },
 ];
 
 const FLOATING_CARDS = [
@@ -70,7 +70,7 @@ export function Landing() {
         transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
       />
 
-      {/* Floating metric cards — desktop only */}
+      {/* Floating metric cards — desktop only
       {FLOATING_CARDS.map((card) => (
         <motion.div
           key={card.label}
@@ -90,7 +90,7 @@ export function Landing() {
             <div className="text-xs text-white/40">{card.label}</div>
           </motion.div>
         </motion.div>
-      ))}
+      ))} */}
 
       {/* Hero */}
       <div className="relative z-10 max-w-2xl mx-auto px-6 text-center">
@@ -141,14 +141,14 @@ export function Landing() {
               Show me the numbers <ArrowRight className="w-4 h-4" />
             </motion.button>
 
-            <motion.button
+            {/* <motion.button
               onClick={handleDemo}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="btn-ghost flex items-center justify-center gap-2 px-8 py-3.5 text-base"
             >
               See a demo
-            </motion.button>
+            </motion.button> */}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
