@@ -377,6 +377,7 @@ export function Setup() {
               </button>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setStep(0)}
                   className="group flex items-center gap-1 py-3 px-4 rounded-xl border border-white/10 text-white/50 font-medium text-sm transition-all duration-200 hover:border-white/30 hover:text-white"
                 >
