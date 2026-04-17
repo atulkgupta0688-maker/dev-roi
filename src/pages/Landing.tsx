@@ -17,14 +17,12 @@ const FLOATING_CARDS = [
 ];
 
 const float = (delay: number) => ({
-  animate: {
-    y: ['0px', '-10px', '0px'],
-    transition: {
-      duration: 4,
-      delay,
-      repeat: Infinity,
-      ease: 'easeInOut' as const,
-    },
+  animate: { y: ['0px', '-10px', '0px'] },
+  transition: {
+    duration: 4,
+    delay,
+    repeat: Infinity,
+    ease: 'easeInOut' as const,
   },
 });
 
@@ -65,7 +63,8 @@ export function Landing() {
         style={{
           background: 'radial-gradient(circle, rgba(0,255,148,0.05) 0%, transparent 70%)',
           filter: 'blur(40px)',
-          transform: 'translate(-50%, -50%)',
+          x: '-50%',
+          y: '-50%',
         }}
         animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
         transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
@@ -76,7 +75,7 @@ export function Landing() {
         <motion.div
           key={card.label}
           className="hidden lg:block absolute pointer-events-none"
-          style={{ left: '50%', top: '50%', translateX: card.x, translateY: card.y }}
+          style={{ left: '50%', top: '50%', x: card.x, y: card.y }}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: card.delay + 0.5 }}
