@@ -22,19 +22,27 @@ export function useWorkspace() {
 
     setWorkspace(wsData as Workspace);
 
-    const [platformRes, devRes, snapshotRes] = await Promise.all([
+    const [platformRes, devRes, snapshotRes] = await Promise.allSettled([
       supabase.from('ai_platforms').select('*').eq('workspace_id', wsData.id).order('created_at'),
       supabase.from('developers').select('*').eq('workspace_id', wsData.id).order('created_at'),
       supabase.from('workspace_snapshots').select('*').eq('workspace_id', wsData.id).order('recorded_at'),
     ]);
 
-    if (platformRes.error) throw platformRes.error;
-    if (devRes.error) throw devRes.error;
-    if (snapshotRes.error) throw snapshotRes.error;
-
-    setPlatforms((platformRes.data as AIPlatform[]) ?? []);
-    setDevelopers((devRes.data as Developer[]) ?? []);
-    setSnapshots((snapshotRes.data as WorkspaceSnapshot[]) ?? []);
+    setPlatforms(
+      platformRes.status === 'fulfilled' && !platformRes.value.error
+        ? (platformRes.value.data as AIPlatform[]) ?? []
+        : []
+    );
+    setDevelopers(
+      devRes.status === 'fulfilled' && !devRes.value.error
+        ? (devRes.value.data as Developer[]) ?? []
+        : []
+    );
+    setSnapshots(
+      snapshotRes.status === 'fulfilled' && !snapshotRes.value.error
+        ? (snapshotRes.value.data as WorkspaceSnapshot[]) ?? []
+        : []
+    );
   }, [user, isDemoMode, setWorkspace, setPlatforms, setDevelopers, setSnapshots]);
 
   useEffect(() => {
@@ -50,11 +58,14 @@ export async function saveWorkspace(
   userId: string,
   data: Partial<Workspace>
 ): Promise<Workspace> {
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from('workspaces')
     .select('id')
     .eq('user_id', userId)
     .single();
+
+  // Only treat "no rows" (PGRST116) as expected; any other error is a real failure
+  if (lookupError && lookupError.code !== 'PGRST116') throw lookupError;
 
   if (existing?.id) {
     const { data: updated, error } = await supabase
@@ -84,7 +95,12 @@ export async function savePlatforms(
   if (platforms.length === 0) return [];
   const { data, error } = await supabase
     .from('ai_platforms')
-    .insert(platforms.map((p) => ({ ...p, workspace_id: workspaceId })))
+    .insert(
+      platforms.map(({ id: _id, created_at: _ca, ...rest }) => ({
+        ...rest,
+        workspace_id: workspaceId,
+      }))
+    )
     .select();
   if (error) throw error;
   return (data as AIPlatform[]) ?? [];

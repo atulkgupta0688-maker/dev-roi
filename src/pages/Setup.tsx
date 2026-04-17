@@ -4,12 +4,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '../lib/store';
-import { savePendingWorkspace } from '../lib/hooks/useWorkspace';
+import { savePendingWorkspace, saveSnapshot } from '../lib/hooks/useWorkspace';
+import { calculateROIMetrics } from '../lib/roiEngine';
 import type { AIPlatform, PlatformName } from '../lib/types';
 import { MeshBackground } from '../components/MeshBackground';
+import { MonthPicker } from '../components/MonthPicker';
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -18,7 +20,19 @@ const step1Schema = z.object({
   team_size: z.coerce.number().min(1, 'At least 1 developer'),
 });
 
+const step3Schema = z.object({
+  avg_annual_salary: z.coerce.number().min(1000, 'Enter a realistic salary (min $1,000)'),
+  monthly_hours: z.coerce.number().min(1, 'Required').max(300),
+  baseline_per_dev: z.coerce.number().min(0, 'Required'),
+  current_per_dev: z.coerce.number().min(0, 'Required'),
+  ai_adoption_month: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, 'Format: YYYY-MM')
+    .min(1, 'Required'),
+});
+
 type Step1Data = z.infer<typeof step1Schema>;
+type Step3Data = z.infer<typeof step3Schema>;
 
 // ─── Platform form ────────────────────────────────────────────────────────────
 
@@ -100,8 +114,39 @@ export function Setup() {
   const [step, setStep] = useState(0);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
   const [platforms, setPlatformDrafts] = useState<PlatformDraft[]>([emptyPlatform(1)]);
+  const [saving, setSaving] = useState(false);
 
   const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) });
+  const form3 = useForm<Step3Data>({
+    resolver: zodResolver(step3Schema),
+    defaultValues: {
+      avg_annual_salary: 120000,
+      monthly_hours: 160,
+      baseline_per_dev: undefined,
+      current_per_dev: undefined,
+      ai_adoption_month: '',
+    },
+  });
+
+  const fillDemoData = () => {
+    form1.setValue('name', 'Acme Engineering');
+    form1.setValue('team_size', 8);
+    setStep1Data({ name: 'Acme Engineering', team_size: 8 });
+    setPlatformDrafts([
+      { name: 'GitHub Copilot',   cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 19, seats: 8, adopted_date: '2024-07', usage_percent: 35 },
+      { name: 'ChatGPT Plus',     cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 25, seats: 8, adopted_date: '2024-07', usage_percent: 25 },
+      { name: 'Gemini Advanced',  cost_type: 'flat',     flat_cost: 240, per_seat_cost: 0,  seats: 8, adopted_date: '2024-09', usage_percent: 15 },
+      { name: 'Cursor',           cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 20, seats: 8, adopted_date: '2024-08', usage_percent: 15 },
+      { name: 'Claude',           cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 20, seats: 8, adopted_date: '2024-10', usage_percent: 10 },
+    ]);
+    form3.setValue('avg_annual_salary', 130000);
+    form3.setValue('monthly_hours', 160);
+    form3.setValue('baseline_per_dev', 11);
+    form3.setValue('current_per_dev', 16);
+    form3.setValue('ai_adoption_month', '2024-07');
+    setStep(1);
+    toast.success('Demo data loaded — review and adjust before submitting');
+  };
 
   const totalUsage = platforms.reduce((sum, p) => sum + (p.usage_percent || 0), 0);
   const usageWarning = totalUsage < 90 || totalUsage > 110;
@@ -112,15 +157,20 @@ export function Setup() {
   });
 
   const onStep2 = () => {
+    // Check empty first (vacuous truth fix)
+    if (platforms.length === 0) {
+      toast.error('Add at least one AI subscription');
+      return;
+    }
     const valid = platforms.every((p) => p.adopted_date);
     if (!valid) {
       toast.error('Every subscription needs an adoption date (YYYY-MM)');
       return;
     }
-    if (platforms.length === 0) {
-      toast.error('Add at least one AI subscription');
-      return;
-    }
+    setStep(2);
+  };
+
+  const onStep3 = form3.handleSubmit(async (data) => {
     if (!step1Data) return;
 
     const workspaceId = `pending-${Date.now()}`;
@@ -130,13 +180,13 @@ export function Setup() {
       user_id: '',
       name: step1Data.name,
       team_size: step1Data.team_size,
-      avg_annual_salary: 0,
-      monthly_hours: 160,
+      avg_annual_salary: data.avg_annual_salary,
+      monthly_hours: data.monthly_hours,
       metric_type: 'tickets' as const,
       rolling_window: 30 as const,
-      baseline_per_dev: null,
-      ai_adoption_month: null,
-      current_per_dev: null,
+      baseline_per_dev: data.baseline_per_dev,
+      ai_adoption_month: data.ai_adoption_month,
+      current_per_dev: data.current_per_dev,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -147,26 +197,45 @@ export function Setup() {
       created_at: new Date().toISOString(),
     }));
 
+    // Optimistically populate store so dashboard has data immediately
     setWorkspace(workspace);
     setPlatforms(aiPlatforms);
     setDevelopers([]);
 
     if (user) {
-      setHasPendingData(false);
-      savePendingWorkspace(user.id, workspace, aiPlatforms, [])
-        .then((saved) => {
-          setWorkspace(saved.workspace);
-          setPlatforms(saved.platforms);
-          setDevelopers(saved.developers);
-          toast.success('Workspace saved!');
-        })
-        .catch(() => toast.error('Failed to save workspace. Please try again.'));
+      setSaving(true);
+      try {
+        const saved = await savePendingWorkspace(user.id, workspace, aiPlatforms, []);
+        // Replace fake IDs with real DB IDs before navigating
+        setWorkspace(saved.workspace);
+        setPlatforms(saved.platforms);
+        setDevelopers(saved.developers);
+
+        // Save initial snapshot so the trend chart has a baseline point immediately
+        try {
+          const initialMetrics = calculateROIMetrics({
+            workspace: saved.workspace,
+            platforms: saved.platforms,
+            developers: [],
+          });
+          const snap = await saveSnapshot(saved.workspace.id, initialMetrics);
+          useAppStore.getState().setSnapshots([snap]);
+        } catch {
+          // Non-fatal — workspace was saved, snapshot is optional
+        }
+
+        setHasPendingData(false);
+        toast.success('Workspace saved!');
+        navigate('/dashboard');
+      } catch {
+        toast.error('Failed to save workspace. Please try again.');
+        setSaving(false);
+      }
     } else {
       setHasPendingData(true);
+      navigate('/dashboard');
     }
-
-    navigate('/dashboard');
-  };
+  });
 
   const updatePlatform = (i: number, patch: Partial<PlatformDraft>) => {
     setPlatformDrafts((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
@@ -183,14 +252,23 @@ export function Setup() {
     });
   };
 
-  const STEPS = ['Team basics', 'Subscriptions'];
+  const STEPS = ['Team basics', 'Subscriptions', 'Velocity metrics'];
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-6">
       <MeshBackground />
       <div className="relative z-10 w-full max-w-lg">
-        <div className="mb-2 text-xs text-white/30 font-mono uppercase tracking-widest">
-          Step {step + 1} of {STEPS.length} — {STEPS[step]}
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs text-white/30 font-mono uppercase tracking-widest">
+            Step {step + 1} of {STEPS.length} — {STEPS[step]}
+          </span>
+          <button
+            type="button"
+            onClick={fillDemoData}
+            className="text-xs text-accent/60 hover:text-accent transition-colors font-medium"
+          >
+            Fill with demo data →
+          </button>
         </div>
         <StepIndicator current={step} total={STEPS.length} />
 
@@ -306,11 +384,9 @@ export function Setup() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="label">Adoption date</label>
-                        <input
-                          type="month"
-                          className="input-dark w-full"
+                        <MonthPicker
                           value={p.adopted_date}
-                          onChange={(e) => updatePlatform(i, { adopted_date: e.target.value })}
+                          onChange={(v) => updatePlatform(i, { adopted_date: v })}
                         />
                       </div>
                       <div>
@@ -340,9 +416,100 @@ export function Setup() {
                   <ChevronLeft className="w-4 h-4" /> Back
                 </button>
                 <button onClick={onStep2} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                  See my spend <ArrowRight className="w-4 h-4" />
+                  Continue <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+            </motion.div>
+          )}
+
+          {/* ── Step 3: Velocity metrics ── */}
+          {step === 2 && (
+            <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <h2 className="font-heading text-2xl font-bold text-white mb-1">Velocity & cost</h2>
+              <p className="text-white/40 text-sm mb-6">
+                These numbers power your ROI calculation. Use your best estimates — you can update them anytime in Settings.
+              </p>
+              <form onSubmit={onStep3} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Avg annual salary (USD)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-sm">$</span>
+                      <input
+                        type="number"
+                        className="input-dark w-full pl-8"
+                        placeholder="120000"
+                        {...form3.register('avg_annual_salary')}
+                      />
+                    </div>
+                    <FieldError message={form3.formState.errors.avg_annual_salary?.message} />
+                  </div>
+                  <div>
+                    <label className="label">Monthly hours / dev</label>
+                    <input
+                      type="number"
+                      className="input-dark w-full"
+                      placeholder="160"
+                      {...form3.register('monthly_hours')}
+                    />
+                    <FieldError message={form3.formState.errors.monthly_hours?.message} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label">AI adoption month</label>
+                  <MonthPicker
+                    value={form3.watch('ai_adoption_month') ?? ''}
+                    onChange={(v) => form3.setValue('ai_adoption_month', v, { shouldValidate: true })}
+                  />
+                  <p className="text-xs text-white/30 mt-1">When did your team start using AI tools?</p>
+                  <FieldError message={form3.formState.errors.ai_adoption_month?.message} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Baseline tickets / dev / mo</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="input-dark w-full"
+                      placeholder="8"
+                      {...form3.register('baseline_per_dev')}
+                    />
+                    <p className="text-xs text-white/30 mt-1">Before AI tools</p>
+                    <FieldError message={form3.formState.errors.baseline_per_dev?.message} />
+                  </div>
+                  <div>
+                    <label className="label">Current tickets / dev / mo</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="input-dark w-full"
+                      placeholder="12"
+                      {...form3.register('current_per_dev')}
+                    />
+                    <p className="text-xs text-white/30 mt-1">With AI tools today</p>
+                    <FieldError message={form3.formState.errors.current_per_dev?.message} />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setStep(1)} className="btn-ghost flex items-center gap-1" disabled={saving}>
+                    <ChevronLeft className="w-4 h-4" /> Back
+                  </button>
+                  <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Saving…
+                      </>
+                    ) : (
+                      <>
+                        See my ROI <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           )}
         </AnimatePresence>

@@ -17,6 +17,8 @@ const workspaceSchema = z.object({
   team_size: z.number().min(1).max(100),
   avg_annual_salary: z.number().min(1000),
   monthly_hours: z.number().min(1).max(300),
+  baseline_per_dev: z.number().min(0).nullable(),
+  current_per_dev: z.number().min(0).nullable(),
 });
 
 type WorkspaceFormData = z.infer<typeof workspaceSchema>;
@@ -41,14 +43,14 @@ export function Settings() {
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceFormData>({
     resolver: zodResolver(workspaceSchema),
-    defaultValues: workspace
-      ? {
-          name: workspace.name,
-          team_size: workspace.team_size,
-          avg_annual_salary: workspace.avg_annual_salary,
-          monthly_hours: workspace.monthly_hours,
-        }
-      : {},
+    defaultValues: {
+      name: workspace?.name ?? '',
+      team_size: workspace?.team_size ?? 1,
+      avg_annual_salary: workspace?.avg_annual_salary ?? 120000,
+      monthly_hours: workspace?.monthly_hours ?? 160,
+      baseline_per_dev: workspace?.baseline_per_dev ?? null,
+      current_per_dev: workspace?.current_per_dev ?? null,
+    },
   });
 
   const onSave = async (data: WorkspaceFormData) => {
@@ -58,11 +60,23 @@ export function Settings() {
         const updated = await saveWorkspace(user.id, { ...workspace, ...data });
         if (updated) {
           setWorkspace(updated);
-          const { platforms, developers, snapshots, setSnapshots } = useAppStore.getState();
-          if (platforms.length > 0) {
-            const metrics = calculateROIMetrics({ workspace: updated, platforms, developers });
-            const snapshot = await saveSnapshot(updated.id, metrics);
-            setSnapshots([...snapshots, snapshot]);
+
+          // Only snapshot when velocity metrics actually changed (avoids noisy chart)
+          const metricsChanged =
+            data.baseline_per_dev !== workspace.baseline_per_dev ||
+            data.current_per_dev !== workspace.current_per_dev;
+
+          if (metricsChanged) {
+            const { platforms, developers, snapshots, setSnapshots } = useAppStore.getState();
+            if (platforms.length > 0) {
+              try {
+                const metrics = calculateROIMetrics({ workspace: updated, platforms, developers });
+                const snapshot = await saveSnapshot(updated.id, metrics);
+                setSnapshots([...snapshots, snapshot]);
+              } catch {
+                // Snapshot failure is non-fatal — workspace was saved successfully
+              }
+            }
           }
         }
       } else {
@@ -125,6 +139,18 @@ export function Settings() {
           <div>
             <label className="text-sm text-white/60 mb-1.5 block">Monthly working hours per dev</label>
             <input {...register('monthly_hours', { valueAsNumber: true })} className="input-dark" type="number" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-white/60 mb-1.5 block">Baseline {workspace?.metric_type === 'prs' ? 'PRs' : 'tickets'} / dev / month</label>
+              <input {...register('baseline_per_dev', { valueAsNumber: true })} className="input-dark" type="number" step="0.1" min="0" />
+              {errors.baseline_per_dev && <p className="text-negative text-xs mt-1">{errors.baseline_per_dev.message}</p>}
+            </div>
+            <div>
+              <label className="text-sm text-white/60 mb-1.5 block">Current {workspace?.metric_type === 'prs' ? 'PRs' : 'tickets'} / dev / month</label>
+              <input {...register('current_per_dev', { valueAsNumber: true })} className="input-dark" type="number" step="0.1" min="0" />
+              {errors.current_per_dev && <p className="text-negative text-xs mt-1">{errors.current_per_dev.message}</p>}
+            </div>
           </div>
           <button type="submit" disabled={isSubmitting} className="btn-primary flex items-center gap-2">
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

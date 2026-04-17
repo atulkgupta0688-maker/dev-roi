@@ -31,8 +31,9 @@ export function calculateSpendInsights(platforms: AIPlatform[]): SpendInsights {
   const totalSpend = platforms.reduce((sum, p) => sum + p.monthly_cost, 0);
 
   // Top tool by usage_percent
-  const topTool = platforms.reduce((best, p) =>
-    p.usage_percent > best.usage_percent ? p : best
+  const topTool = platforms.reduce(
+    (best, p) => (p.usage_percent > best.usage_percent ? p : best),
+    platforms[0]
   );
 
   // Waste per tool

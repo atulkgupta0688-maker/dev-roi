@@ -4,6 +4,8 @@ const DEMO_WORKSPACE_ID = 'demo-workspace-001';
 const DEMO_COPILOT_ID = 'demo-platform-copilot';
 const DEMO_CHATGPT_ID = 'demo-platform-chatgpt';
 const DEMO_GEMINI_ID = 'demo-platform-gemini';
+const DEMO_CURSOR_ID = 'demo-platform-cursor';
+const DEMO_CLAUDE_ID = 'demo-platform-claude';
 
 export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
   workspace: {
@@ -26,10 +28,10 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       id: DEMO_COPILOT_ID,
       workspace_id: DEMO_WORKSPACE_ID,
       name: 'GitHub Copilot',
-      monthly_cost: 400,
+      monthly_cost: 152,
       seats: 8,
       adopted_date: '2024-07',
-      usage_percent: 55,
+      usage_percent: 35,
       created_at: new Date().toISOString(),
     },
     {
@@ -39,17 +41,37 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       monthly_cost: 200,
       seats: 8,
       adopted_date: '2024-07',
-      usage_percent: 30,
+      usage_percent: 25,
       created_at: new Date().toISOString(),
     },
     {
       id: DEMO_GEMINI_ID,
       workspace_id: DEMO_WORKSPACE_ID,
       name: 'Gemini Advanced',
-      monthly_cost: 600,
+      monthly_cost: 240,
       seats: 8,
       adopted_date: '2024-09',
       usage_percent: 15,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: DEMO_CURSOR_ID,
+      workspace_id: DEMO_WORKSPACE_ID,
+      name: 'Cursor',
+      monthly_cost: 160,
+      seats: 8,
+      adopted_date: '2024-08',
+      usage_percent: 15,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: DEMO_CLAUDE_ID,
+      workspace_id: DEMO_WORKSPACE_ID,
+      name: 'Claude',
+      monthly_cost: 160,
+      seats: 8,
+      adopted_date: '2024-10',
+      usage_percent: 10,
       created_at: new Date().toISOString(),
     },
   ],
@@ -69,7 +91,7 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       name: 'Sara Kim',
       baseline_tickets: 12,
       current_tickets: 20,
-      platform_ids: [DEMO_COPILOT_ID, DEMO_CHATGPT_ID, DEMO_GEMINI_ID],
+      platform_ids: [DEMO_COPILOT_ID, DEMO_CURSOR_ID, DEMO_CLAUDE_ID],
       created_at: new Date().toISOString(),
     },
     {
@@ -78,7 +100,7 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       name: 'Dev Patel',
       baseline_tickets: 11,
       current_tickets: 15,
-      platform_ids: [DEMO_COPILOT_ID],
+      platform_ids: [DEMO_COPILOT_ID, DEMO_CURSOR_ID],
       created_at: new Date().toISOString(),
     },
     {
@@ -87,7 +109,7 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       name: 'Jamie Torres',
       baseline_tickets: 9,
       current_tickets: 10,
-      platform_ids: [DEMO_GEMINI_ID],
+      platform_ids: [DEMO_GEMINI_ID, DEMO_CHATGPT_ID],
       created_at: new Date().toISOString(),
     },
   ],
@@ -98,8 +120,8 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       recorded_at: '2024-08-01T00:00:00Z',
       roi_multiple: 2.1,
       velocity_lift_pct: 18,
-      net_monthly_value: 3200,
-      total_spend: 600,
+      net_monthly_value: 2500,
+      total_spend: 352,
     },
     {
       id: 'snap-002',
@@ -107,17 +129,17 @@ export const DEMO_DATA: WorkspaceData & { snapshots: WorkspaceSnapshot[] } = {
       recorded_at: '2024-10-01T00:00:00Z',
       roi_multiple: 2.8,
       velocity_lift_pct: 27,
-      net_monthly_value: 4100,
-      total_spend: 1200,
+      net_monthly_value: 3600,
+      total_spend: 712,
     },
     {
       id: 'snap-003',
       workspace_id: DEMO_WORKSPACE_ID,
       recorded_at: '2025-01-01T00:00:00Z',
-      roi_multiple: 3.2,
+      roi_multiple: 3.6,
       velocity_lift_pct: 45,
-      net_monthly_value: 6200,
-      total_spend: 1200,
+      net_monthly_value: 4380,
+      total_spend: 912,
     },
   ],
 };

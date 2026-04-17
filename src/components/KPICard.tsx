@@ -17,6 +17,7 @@ interface KPICardProps {
   tooltip?: string;
   icon?: ReactNode;
   delay?: number;
+  onExplain?: () => void;
 }
 
 export function KPICard({
@@ -32,6 +33,7 @@ export function KPICard({
   tooltip,
   icon,
   delay = 0,
+  onExplain,
 }: KPICardProps) {
   const animatedValue = useCountUp({ end: value, decimals, duration: 1400 });
 
@@ -55,14 +57,21 @@ export function KPICard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className="card p-5 cursor-default"
+      className={`card p-5 ${onExplain ? 'cursor-pointer hover:border-white/15 transition-colors group' : 'cursor-default'}`}
+      onClick={onExplain}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium uppercase tracking-widest text-white/40">{label}</span>
           {tooltip && <Tooltip content={tooltip} />}
         </div>
-        {icon && <div className="text-white/20">{icon}</div>}
+        {onExplain ? (
+          <span className="text-[10px] text-white/20 group-hover:text-accent/60 transition-colors font-mono">
+            how? →
+          </span>
+        ) : icon ? (
+          <div className="text-white/20">{icon}</div>
+        ) : null}
       </div>
 
       <div className="font-mono text-3xl font-medium tabular-nums leading-none mb-2" style={{ color: colorMap[color] }}>
