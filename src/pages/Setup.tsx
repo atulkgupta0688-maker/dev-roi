@@ -4,11 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, ChevronRight, ChevronLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '../lib/store';
-import { savePendingWorkspace, saveSnapshot } from '../lib/hooks/useWorkspace';
-import { calculateROIMetrics } from '../lib/roiEngine';
 import type { AIPlatform, PlatformName } from '../lib/types';
 import { MeshBackground } from '../components/MeshBackground';
 import { MonthPicker } from '../components/MonthPicker';
@@ -109,12 +107,11 @@ function FieldError({ message }: { message?: string }) {
 
 export function Setup() {
   const navigate = useNavigate();
-  const { user, setWorkspace, setPlatforms, setDevelopers, setHasPendingData } = useAppStore();
+  const { saveWorkspaceData } = useAppStore();
 
   const [step, setStep] = useState(0);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
   const [platforms, setPlatformDrafts] = useState<PlatformDraft[]>([emptyPlatform(1)]);
-  const [saving, setSaving] = useState(false);
 
   const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) });
   const form3 = useForm<Step3Data>({
@@ -170,7 +167,7 @@ export function Setup() {
     setStep(2);
   };
 
-  const onStep3 = form3.handleSubmit(async (data) => {
+  const onStep3 = form3.handleSubmit((data) => {
     if (!step1Data) return;
 
     const workspaceId = `pending-${Date.now()}`;
@@ -197,44 +194,8 @@ export function Setup() {
       created_at: new Date().toISOString(),
     }));
 
-    // Optimistically populate store so dashboard has data immediately
-    setWorkspace(workspace);
-    setPlatforms(aiPlatforms);
-    setDevelopers([]);
-
-    if (user) {
-      setSaving(true);
-      try {
-        const saved = await savePendingWorkspace(user.id, workspace, aiPlatforms, []);
-        // Replace fake IDs with real DB IDs before navigating
-        setWorkspace(saved.workspace);
-        setPlatforms(saved.platforms);
-        setDevelopers(saved.developers);
-
-        // Save initial snapshot so the trend chart has a baseline point immediately
-        try {
-          const initialMetrics = calculateROIMetrics({
-            workspace: saved.workspace,
-            platforms: saved.platforms,
-            developers: [],
-          });
-          const snap = await saveSnapshot(saved.workspace.id, initialMetrics);
-          useAppStore.getState().setSnapshots([snap]);
-        } catch {
-          // Non-fatal — workspace was saved, snapshot is optional
-        }
-
-        setHasPendingData(false);
-        toast.success('Workspace saved!');
-        navigate('/dashboard');
-      } catch {
-        toast.error('Failed to save workspace. Please try again.');
-        setSaving(false);
-      }
-    } else {
-      setHasPendingData(true);
-      navigate('/dashboard');
-    }
+    saveWorkspaceData(workspace, aiPlatforms, []);
+    navigate('/dashboard');
   });
 
   const updatePlatform = (i: number, patch: Partial<PlatformDraft>) => {
@@ -255,7 +216,7 @@ export function Setup() {
   const STEPS = ['Team basics', 'Subscriptions', 'Velocity metrics'];
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-6">
+    <div className="min-h-screen relative flex items-center justify-center p-4 lg:p-6 pt-[61px] lg:pt-6">
       <MeshBackground />
       <div className="relative z-10 w-full max-w-lg">
         <div className="mb-2 flex items-center justify-between">
@@ -494,19 +455,11 @@ export function Setup() {
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setStep(1)} className="btn-ghost flex items-center gap-1" disabled={saving}>
+                  <button type="button" onClick={() => setStep(1)} className="btn-ghost flex items-center gap-1">
                     <ChevronLeft className="w-4 h-4" /> Back
                   </button>
-                  <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Saving…
-                      </>
-                    ) : (
-                      <>
-                        See my ROI <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
+                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
+                    See my ROI <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </form>
