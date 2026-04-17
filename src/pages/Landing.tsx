@@ -28,7 +28,7 @@ export function Landing() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 className="font-heading text-5xl font-bold text-white mb-4 leading-tight">
+          <h1 className="font-heading text-3xl sm:text-5xl font-bold text-white mb-4 leading-tight">
             Is your AI spend<br />paying off?
           </h1>
           <p className="text-white/50 text-lg mb-10 max-w-md mx-auto">
