@@ -2,6 +2,12 @@ import { NavLink } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useAppStore } from '../lib/store';
 
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  clsx(
+    'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+    isActive ? 'text-white bg-white/[0.08]' : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
+  );
+
 export function TopNav() {
   const workspace = useAppStore((s) => s.workspace);
   const dashboardEnabled = workspace !== null;
@@ -13,54 +19,27 @@ export function TopNav() {
           VelocityIQ
         </span>
 
-        <nav className="flex items-center gap-1">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              clsx(
-                'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'text-white bg-white/[0.08]'
-                  : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
-              )
-            }
-          >
+        <nav aria-label="Primary" className="flex items-center gap-1">
+          <NavLink to="/" end className={navLinkClass}>
             Home
           </NavLink>
 
-          <NavLink
-            to="/setup"
-            className={({ isActive }) =>
-              clsx(
-                'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'text-white bg-white/[0.08]'
-                  : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
-              )
-            }
-          >
+          <NavLink to="/setup" className={navLinkClass}>
             Setup
           </NavLink>
 
           {dashboardEnabled ? (
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                clsx(
-                  'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                  isActive
-                    ? 'text-white bg-white/[0.08]'
-                    : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
-                )
-              }
-            >
+            <NavLink to="/dashboard" className={navLinkClass}>
               Dashboard
             </NavLink>
           ) : (
             <span
+              role="link"
+              aria-disabled="true"
+              tabIndex={0}
               className="px-3 py-1.5 rounded-lg text-sm font-medium text-white/20 cursor-not-allowed select-none"
               title="Complete setup to unlock"
+              aria-label="Dashboard — complete setup to unlock"
             >
               Dashboard
             </span>
