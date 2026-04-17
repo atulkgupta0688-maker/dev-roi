@@ -26,7 +26,7 @@ export function SubscriptionTable({ platforms, platformROIs }: Props) {
   const hasROI = platformROIs && platformROIs.length > 0;
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card overflow-hidden overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/[0.06]">
