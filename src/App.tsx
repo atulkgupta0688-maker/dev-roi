@@ -15,7 +15,7 @@ function AppLayout() {
   const showSidebar = SIDEBAR_ROUTES.some((r) => location.pathname.startsWith(r));
 
   return (
-    <div className="min-h-screen bg-obsidian flex">
+    <div className="min-h-screen bg-obsidian">
       <TopNav />
       {showSidebar && <Sidebar />}
       <main className={`flex-1 min-h-screen relative pt-[61px] ${showSidebar ? 'lg:ml-[220px]' : ''}`}>
@@ -32,7 +32,7 @@ function AppLayout() {
         </div>
       </main>
       <Toaster
-        position="bottom-right"
+        position="top-center" 
         toastOptions={{
           style: {
             background: '#0F1117',
