@@ -78,3 +78,4 @@ Always invoke these before starting work:
 - Dark background color is `bg-obsidian` (custom token)
 - `clsx` + `tailwind-merge` used for conditional class composition
 - Framer Motion `<PageTransition>` wraps each page for route animations
+

@@ -219,14 +219,14 @@ export function Setup() {
     <div className="min-h-screen relative flex items-center justify-center p-4 lg:p-6 pt-[61px] lg:pt-6">
       <MeshBackground />
       <div className="relative z-10 w-full max-w-lg">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs text-white/30 font-mono uppercase tracking-widest">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-1">
+          <span className="text-[10px] sm:text-xs text-white/30 font-mono uppercase tracking-wide sm:tracking-widest">
             Step {step + 1} of {STEPS.length} — {STEPS[step]}
           </span>
           <button
             type="button"
             onClick={fillDemoData}
-            className="text-xs text-accent/60 hover:text-accent transition-colors font-medium"
+            className="text-[10px] sm:text-xs text-accent/60 hover:text-accent transition-colors font-medium"
           >
             Fill with demo data →
           </button>
@@ -237,7 +237,7 @@ export function Setup() {
           {/* ── Step 1: Team basics ── */}
           {step === 0 && (
             <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="font-heading text-2xl font-bold text-white mb-1">Tell us about your team</h2>
+              <h2 className="font-heading text-xl sm:text-2xl font-bold text-white mb-1">Tell us about your team</h2>
               <p className="text-white/40 text-sm mb-6">We'll use this to track your AI spend.</p>
               <form onSubmit={onStep1} className="space-y-4">
                 <div>
@@ -260,7 +260,7 @@ export function Setup() {
           {/* ── Step 2: Subscriptions ── */}
           {step === 1 && (
             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="font-heading text-2xl font-bold text-white mb-1">AI subscriptions</h2>
+              <h2 className="font-heading text-xl sm:text-2xl font-bold text-white mb-1">AI subscriptions</h2>
               <p className="text-white/40 text-sm mb-6">Add every AI tool your team pays for and estimate how much of your work happens in each.</p>
 
               {usageWarning && (
@@ -318,7 +318,7 @@ export function Setup() {
                           />
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className="label">Cost per seat (USD/mo)</label>
                             <input
@@ -342,7 +342,7 @@ export function Setup() {
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="label">Adoption date</label>
                         <MonthPicker
@@ -386,7 +386,7 @@ export function Setup() {
           {/* ── Step 3: Velocity metrics ── */}
           {step === 2 && (
             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <h2 className="font-heading text-2xl font-bold text-white mb-1">Velocity & cost</h2>
+              <h2 className="font-heading text-xl sm:text-2xl font-bold text-white mb-1">Velocity & cost</h2>
               <p className="text-white/40 text-sm mb-6">
                 These numbers power your ROI calculation. Use your best estimates — you can recalculate any time from the dashboard.
               </p>
