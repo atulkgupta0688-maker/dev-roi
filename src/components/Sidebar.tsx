@@ -21,11 +21,8 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[220px] bg-obsidian border-r border-white/[0.06] flex-col z-40">
-        <div className="px-5 py-5 border-b border-white/[0.06]">
-          <span className="font-heading font-bold text-white text-lg tracking-tight">VelocityIQ</span>
-        </div>
+      {/* Desktop sidebar — sits below TopNav */}
+      <aside className="hidden lg:flex fixed left-0 top-[61px] h-[calc(100vh-61px)] w-[220px] bg-obsidian border-r border-white/[0.06] flex-col z-40">
         <nav className="flex-1 px-3 py-4 space-y-1">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
@@ -45,23 +42,29 @@ export function Sidebar() {
             </NavLink>
           ))}
         </nav>
+        <div className="px-3 pb-4">
+          <button
+            onClick={handleRecalculate}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/40 hover:text-white/70 hover:bg-white/[0.04] w-full transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Recalculate
+          </button>
+        </div>
       </aside>
 
-      {/* Mobile top nav */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-obsidian border-b border-white/[0.06] flex items-center justify-between px-4 py-3">
-        <span className="font-heading font-bold text-white text-base tracking-tight">VelocityIQ</span>
-        <button
-          onClick={() => setMobileOpen((o) => !o)}
-          className="text-white/60 hover:text-white transition-colors"
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </header>
+      {/* Mobile hamburger — shown on /dashboard on small screens, sits inside TopNav area */}
+      <button
+        className="lg:hidden fixed top-[14px] right-4 z-[60] text-white/60 hover:text-white transition-colors"
+        onClick={() => setMobileOpen((o) => !o)}
+        aria-label="Toggle menu"
+      >
+        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
 
-      {/* Mobile dropdown menu */}
+      {/* Mobile dropdown */}
       {mobileOpen && (
-        <div className="lg:hidden fixed top-[49px] left-0 right-0 z-40 bg-obsidian border-b border-white/[0.06] px-4 py-3 space-y-1">
+        <div className="lg:hidden fixed top-[61px] left-0 right-0 z-40 bg-obsidian border-b border-white/[0.06] px-4 py-3 space-y-1">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}

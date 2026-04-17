@@ -2,6 +2,7 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'sonner';
 import { Sidebar } from './components/Sidebar';
+import { TopNav } from './components/TopNav';
 import { MeshBackground } from './components/MeshBackground';
 import { Landing } from './pages/Landing';
 import { Setup } from './pages/Setup';
@@ -15,6 +16,7 @@ function AppLayout() {
 
   return (
     <div className="min-h-screen bg-obsidian flex">
+      <TopNav />
       {showSidebar && <Sidebar />}
       <main className={`flex-1 min-h-screen relative ${showSidebar ? 'lg:ml-[220px]' : ''}`}>
         {showSidebar && <MeshBackground />}
