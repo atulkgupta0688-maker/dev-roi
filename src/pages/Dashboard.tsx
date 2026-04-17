@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowRight, TrendingUp, TrendingDown, Zap } from 'lucide-react';
+import { AlertCircle, ArrowRight, TrendingUp, TrendingDown, Zap, RotateCcw } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { SubscriptionTable } from '../components/SubscriptionTable';
 import { PlatformChart } from '../components/PlatformChart';
 import { KPICard } from '../components/KPICard';
 import { ROICalculationModal } from '../components/ROICalculationModal';
-import { SaveWorkspaceBanner } from '../components/SaveWorkspaceBanner';
 import { useAppStore } from '../lib/store';
 import { calculateROIMetrics, calculatePlatformROIs } from '../lib/roiEngine';
 
 type ExplainMetric = 'roi' | 'net' | 'lift' | 'spend' | null;
 
 export function Dashboard() {
-  const { workspace, platforms, developers, isDemoMode } = useAppStore();
+  const { workspace, platforms, developers, isDemoMode, clearData } = useAppStore();
+  const navigate = useNavigate();
   const [explainMetric, setExplainMetric] = useState<ExplainMetric>(null);
 
   const roiMetrics = useMemo(
@@ -114,6 +114,7 @@ export function Dashboard() {
 
   return (
     <PageTransition>
+      <div className="pt-[61px] lg:pt-0">
       {/* Demo banner */}
       {isDemoMode && (
         <motion.div
@@ -130,7 +131,17 @@ export function Dashboard() {
         </motion.div>
       )}
 
-      <SaveWorkspaceBanner />
+      {/* Recalculate banner */}
+      <div className="mb-6 flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3">
+        <p className="text-sm text-white/50">Want to try different inputs?</p>
+        <button
+          onClick={() => { clearData(); navigate('/setup'); }}
+          className="flex items-center gap-2 text-xs font-medium text-white/60 hover:text-white transition-colors"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Recalculate
+        </button>
+      </div>
 
       {/* Header */}
       <div className="mb-7">
@@ -142,7 +153,7 @@ export function Dashboard() {
 
       {/* KPI row */}
       {hasROIData && roiMetrics && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <KPICard
             label="ROI multiple"
             value={roiMetrics.roiMultiple}
@@ -278,6 +289,7 @@ export function Dashboard() {
           platforms={platforms}
         />
       )}
+      </div>
     </PageTransition>
   );
 }
