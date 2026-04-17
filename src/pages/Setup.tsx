@@ -126,21 +126,21 @@ export function Setup() {
   });
 
   const fillDemoData = () => {
-    form1.setValue('name', 'Acme Engineering');
-    form1.setValue('team_size', 8);
-    setStep1Data({ name: 'Acme Engineering', team_size: 8 });
+    form1.setValue('name', 'Momentum Engineering');
+    form1.setValue('team_size', 4);
+    setStep1Data({ name: 'Momentum Engineering', team_size: 4 });
     setPlatformDrafts([
-      { name: 'GitHub Copilot',   cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 19, seats: 8, adopted_date: '2024-07', usage_percent: 35 },
-      { name: 'ChatGPT Plus',     cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 25, seats: 8, adopted_date: '2024-07', usage_percent: 25 },
-      { name: 'Gemini Advanced',  cost_type: 'flat',     flat_cost: 240, per_seat_cost: 0,  seats: 8, adopted_date: '2024-09', usage_percent: 15 },
-      { name: 'Cursor',           cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 20, seats: 8, adopted_date: '2024-08', usage_percent: 15 },
-      { name: 'Claude',           cost_type: 'per_seat', flat_cost: 0,   per_seat_cost: 20, seats: 8, adopted_date: '2024-10', usage_percent: 10 },
+      { name: 'GitHub Copilot',   cost_type: 'per_seat', flat_cost: 0, per_seat_cost: 19, seats: 4, adopted_date: '2023-07', usage_percent: 45 },
+      { name: 'Cursor',           cost_type: 'per_seat', flat_cost: 0, per_seat_cost: 40, seats: 4, adopted_date: '2025-01', usage_percent: 30 },
+      { name: 'ChatGPT Plus',     cost_type: 'per_seat', flat_cost: 0, per_seat_cost: 30, seats: 4, adopted_date: '2025-06', usage_percent: 15 },
+      { name: 'Gemini Advanced',  cost_type: 'per_seat', flat_cost: 0, per_seat_cost: 30, seats: 4, adopted_date: '2025-11', usage_percent: 6  },
+      { name: 'Claude',           cost_type: 'per_seat', flat_cost: 0, per_seat_cost: 30, seats: 4, adopted_date: '2026-02', usage_percent: 4  },
     ]);
-    form3.setValue('avg_annual_salary', 130000);
+    form3.setValue('avg_annual_salary', 55000);
     form3.setValue('monthly_hours', 160);
-    form3.setValue('baseline_per_dev', 11);
-    form3.setValue('current_per_dev', 16);
-    form3.setValue('ai_adoption_month', '2024-07');
+    form3.setValue('baseline_per_dev', 20);
+    form3.setValue('current_per_dev', 21);
+    form3.setValue('ai_adoption_month', '2023-07');
     setStep(1);
     toast.success('Demo data loaded — review and adjust before submitting');
   };
@@ -388,7 +388,7 @@ export function Setup() {
             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <h2 className="font-heading text-2xl font-bold text-white mb-1">Velocity & cost</h2>
               <p className="text-white/40 text-sm mb-6">
-                These numbers power your ROI calculation. Use your best estimates — you can update them anytime in Settings.
+                These numbers power your ROI calculation. Use your best estimates — you can recalculate any time from the dashboard.
               </p>
               <form onSubmit={onStep3} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
