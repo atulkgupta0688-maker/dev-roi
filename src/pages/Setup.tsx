@@ -141,8 +141,7 @@ export function Setup() {
     form3.setValue('baseline_per_dev', 20);
     form3.setValue('current_per_dev', 21);
     form3.setValue('ai_adoption_month', '2023-07');
-    setStep(1);
-    toast.success('Demo data loaded — review and adjust before submitting');
+    toast.success('Demo data loaded — click Continue to proceed');
   };
 
   const totalUsage = platforms.reduce((sum, p) => sum + (p.usage_percent || 0), 0);
@@ -250,8 +249,12 @@ export function Setup() {
                   <input type="number" className="input-dark w-full" placeholder="8" {...form1.register('team_size')} />
                   <FieldError message={form1.formState.errors.team_size?.message} />
                 </div>
-                <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
-                  Continue <ChevronRight className="w-4 h-4" />
+                <button
+                  type="submit"
+                  className="group w-full flex items-center justify-center gap-2 mt-2 py-3 px-6 rounded-xl border border-accent/60 text-accent font-semibold text-sm transition-all duration-200 hover:bg-accent hover:text-obsidian hover:border-accent hover:shadow-[0_0_20px_rgba(0,212,255,0.2)]"
+                >
+                  Continue
+                  <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </form>
             </motion.div>
@@ -373,11 +376,19 @@ export function Setup() {
                 <Plus className="w-4 h-4" /> Add another subscription
               </button>
               <div className="flex gap-3">
-                <button onClick={() => setStep(0)} className="btn-ghost flex items-center gap-1">
-                  <ChevronLeft className="w-4 h-4" /> Back
+                <button
+                  onClick={() => setStep(0)}
+                  className="group flex items-center gap-1 py-3 px-4 rounded-xl border border-white/10 text-white/50 font-medium text-sm transition-all duration-200 hover:border-white/30 hover:text-white"
+                >
+                  <ChevronLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" />
+                  Back
                 </button>
-                <button onClick={onStep2} className="btn-primary flex-1 flex items-center justify-center gap-2">
-                  Continue <ChevronRight className="w-4 h-4" />
+                <button
+                  onClick={onStep2}
+                  className="group flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl border border-accent/60 text-accent font-semibold text-sm transition-all duration-200 hover:bg-accent hover:text-obsidian hover:border-accent hover:shadow-[0_0_20px_rgba(0,212,255,0.2)]"
+                >
+                  Continue
+                  <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </div>
             </motion.div>
@@ -455,11 +466,20 @@ export function Setup() {
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setStep(1)} className="btn-ghost flex items-center gap-1">
-                    <ChevronLeft className="w-4 h-4" /> Back
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="group flex items-center gap-1 py-3 px-4 rounded-xl border border-white/10 text-white/50 font-medium text-sm transition-all duration-200 hover:border-white/30 hover:text-white"
+                  >
+                    <ChevronLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" />
+                    Back
                   </button>
-                  <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
-                    See my ROI <ArrowRight className="w-4 h-4" />
+                  <button
+                    type="submit"
+                    className="group flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl border border-accent/60 text-accent font-semibold text-sm transition-all duration-200 hover:bg-accent hover:text-obsidian hover:border-accent hover:shadow-[0_0_20px_rgba(0,212,255,0.2)]"
+                  >
+                    Create summary
+                    <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </button>
                 </div>
               </form>
