@@ -19,7 +19,7 @@ export function TopNav() {
           VelocityIQ
         </span>
 
-        <nav aria-label="Primary" className="flex items-center gap-1">
+        <nav aria-label="Primary" className="flex items-center gap-1 mr-10 lg:mr-0">
           <NavLink to="/" end className={navLinkClass}>
             Home
           </NavLink>

@@ -114,7 +114,7 @@ export function Dashboard() {
 
   return (
     <PageTransition>
-      <div className="pt-[61px]">
+      <div>
       {/* Demo banner */}
       {isDemoMode && (
         <motion.div

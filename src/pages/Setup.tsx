@@ -216,7 +216,7 @@ export function Setup() {
   const STEPS = ['Team basics', 'Subscriptions', 'Velocity metrics'];
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 lg:p-6 pt-[61px]">
+    <div className="min-h-screen relative flex items-center justify-center p-4 lg:p-6">
       <MeshBackground />
       <div className="relative z-10 w-full max-w-lg">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-1">

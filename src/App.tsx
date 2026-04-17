@@ -18,7 +18,7 @@ function AppLayout() {
     <div className="min-h-screen bg-obsidian flex">
       <TopNav />
       {showSidebar && <Sidebar />}
-      <main className={`flex-1 min-h-screen relative ${showSidebar ? 'lg:ml-[220px]' : ''}`}>
+      <main className={`flex-1 min-h-screen relative pt-[61px] ${showSidebar ? 'lg:ml-[220px]' : ''}`}>
         {showSidebar && <MeshBackground />}
         <div className="relative z-10 p-4 lg:p-6 max-w-7xl mx-auto">
           <AnimatePresence mode="wait" initial={false}>
