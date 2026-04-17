@@ -29,9 +29,9 @@ const SHORT: Record<string, string> = {
 };
 
 const ROI_COLORS = {
-  great: '#34d399',
-  ok: '#fbbf24',
-  poor: '#f87171',
+  great: '#34d399',   // >2× — green
+  ok: '#fbbf24',      // 0.8–2× — amber
+  poor: '#f87171',    // <0.8× — red
   nodata: '#00D4FF',
 };
 
@@ -151,7 +151,7 @@ export function PlatformChart({ platforms, platformROIs, selectedIndex, onBarCli
           <Bar dataKey="cost" name="Cost" radius={[4, 4, 0, 0]} maxBarSize={48} onClick={handleClick}>
             {data.map((entry, i) => (
               <Cell
-                key={i}
+                key={entry.name}
                 fill={
                   hasROI
                     ? roiColor(entry.roiIndex) + (selectedIndex === i ? '55' : '33')
@@ -177,7 +177,7 @@ export function PlatformChart({ platforms, platformROIs, selectedIndex, onBarCli
             <Bar dataKey="value" name="Value" radius={[4, 4, 0, 0]} maxBarSize={48} onClick={handleClick}>
               {data.map((entry, i) => (
                 <Cell
-                  key={i}
+                  key={entry.name}
                   fill={roiColor(entry.roiIndex) + (selectedIndex === i ? 'cc' : 'aa')}
                   stroke={roiColor(entry.roiIndex)}
                   strokeWidth={selectedIndex === i ? 2 : 1}
