@@ -15,6 +15,8 @@ import type { PlatformROI } from '../lib/types';
 interface Props {
   platforms: AIPlatform[];
   platformROIs?: PlatformROI[];
+  selectedIndex?: number;
+  onBarClick?: (index: number) => void;
 }
 
 const SHORT: Record<string, string> = {
@@ -27,10 +29,10 @@ const SHORT: Record<string, string> = {
 };
 
 const ROI_COLORS = {
-  great: '#34d399',   // >2× — green
-  ok: '#fbbf24',      // 0.8–2× — amber
-  poor: '#f87171',    // <0.8× — red
-  nodata: '#00D4FF',  // no ROI data — cyan
+  great: '#34d399',
+  ok: '#fbbf24',
+  poor: '#f87171',
+  nodata: '#00D4FF',
 };
 
 function roiColor(index?: number) {
@@ -73,7 +75,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export function PlatformChart({ platforms, platformROIs }: Props) {
+export function PlatformChart({ platforms, platformROIs, selectedIndex, onBarClick }: Props) {
   if (platforms.length === 0) return null;
 
   const roiMap = new Map(platformROIs?.map((r) => [r.platform.id, r]) ?? []);
@@ -89,6 +91,10 @@ export function PlatformChart({ platforms, platformROIs }: Props) {
     };
   });
 
+  const handleClick = (_: any, index: number) => {
+    onBarClick?.(index);
+  };
+
   return (
     <div className="card p-6">
       <div className="flex items-start justify-between mb-5">
@@ -96,6 +102,9 @@ export function PlatformChart({ platforms, platformROIs }: Props) {
           <h3 className="font-semibold text-white">Tool comparison</h3>
           <p className="text-xs text-white/30 mt-0.5">
             {hasROI ? 'Monthly cost vs value generated per tool' : 'Monthly spend per tool'}
+            {onBarClick && (
+              <span className="ml-2 text-white/20">· click a bar for details</span>
+            )}
           </p>
         </div>
         {hasROI && (
@@ -113,7 +122,13 @@ export function PlatformChart({ platforms, platformROIs }: Props) {
       </div>
 
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }} barGap={4} barCategoryGap="35%">
+        <BarChart
+          data={data}
+          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+          barGap={4}
+          barCategoryGap="35%"
+          style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
           <XAxis
             dataKey="name"
@@ -129,36 +144,43 @@ export function PlatformChart({ platforms, platformROIs }: Props) {
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
 
-          {/* Break-even reference line if we have value data */}
           {hasROI && (
-            <ReferenceLine
-              y={0}
-              stroke="rgba(255,255,255,0.1)"
-              strokeDasharray="4 2"
-            />
+            <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="4 2" />
           )}
 
-          {/* Cost bar */}
-          <Bar dataKey="cost" name="Cost" radius={[4, 4, 0, 0]} maxBarSize={48}>
+          <Bar dataKey="cost" name="Cost" radius={[4, 4, 0, 0]} maxBarSize={48} onClick={handleClick}>
             {data.map((entry, i) => (
               <Cell
                 key={i}
-                fill={hasROI ? roiColor(entry.roiIndex) + '33' : 'rgba(255,255,255,0.12)'}
-                stroke={hasROI ? roiColor(entry.roiIndex) + '66' : 'rgba(255,255,255,0.2)'}
-                strokeWidth={1}
+                fill={
+                  hasROI
+                    ? roiColor(entry.roiIndex) + (selectedIndex === i ? '55' : '33')
+                    : selectedIndex === i
+                    ? 'rgba(255,255,255,0.22)'
+                    : 'rgba(255,255,255,0.12)'
+                }
+                stroke={
+                  selectedIndex === i
+                    ? hasROI
+                      ? roiColor(entry.roiIndex)
+                      : 'rgba(255,255,255,0.5)'
+                    : hasROI
+                    ? roiColor(entry.roiIndex) + '66'
+                    : 'rgba(255,255,255,0.2)'
+                }
+                strokeWidth={selectedIndex === i ? 2 : 1}
               />
             ))}
           </Bar>
 
-          {/* Value bar — only when ROI data is available */}
           {hasROI && (
-            <Bar dataKey="value" name="Value" radius={[4, 4, 0, 0]} maxBarSize={48}>
+            <Bar dataKey="value" name="Value" radius={[4, 4, 0, 0]} maxBarSize={48} onClick={handleClick}>
               {data.map((entry, i) => (
                 <Cell
                   key={i}
-                  fill={roiColor(entry.roiIndex) + 'aa'}
+                  fill={roiColor(entry.roiIndex) + (selectedIndex === i ? 'cc' : 'aa')}
                   stroke={roiColor(entry.roiIndex)}
-                  strokeWidth={1}
+                  strokeWidth={selectedIndex === i ? 2 : 1}
                 />
               ))}
             </Bar>
